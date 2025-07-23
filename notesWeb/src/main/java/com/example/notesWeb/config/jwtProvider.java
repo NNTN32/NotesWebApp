@@ -73,7 +73,7 @@ public class jwtProvider {
         try{
             String username = getUserFromJwt(token);
             return (username != null && !isTokenExpired(token));
-        }catch (Exception ex){
+        }catch (Exception e){
             System.out.println("Token validation failed: " + e.getMessage());
             return false;
         }
