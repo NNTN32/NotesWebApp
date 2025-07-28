@@ -7,7 +7,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class NotesWebApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(NotesWebApplication.class, args);
+
+		SpringApplication.run(
+				NotesWebApplication.class, args);
 	}
 
 }
