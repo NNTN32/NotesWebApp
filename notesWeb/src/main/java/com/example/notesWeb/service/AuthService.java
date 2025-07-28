@@ -19,7 +19,7 @@ public class AuthService {
 
     //Logic handle request register user
     public String register(AuthRequest authRequest){
-        if(userRepo.existedUsername(authRequest.getUsername())){
+        if(userRepo.existsByUsername(authRequest.getUsername())){
             throw new IllegalArgumentException("Username has already existed!");
         }
         User user = new User();

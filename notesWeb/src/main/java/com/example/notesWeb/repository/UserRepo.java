@@ -4,5 +4,5 @@ import com.example.notesWeb.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface UserRepo extends JpaRepository<User, Long> {
-    boolean existedUsername(String username);
+    boolean existsByUsername(String username);
 }
