@@ -1,6 +1,9 @@
 package com.example.notesWeb.service;
 
+import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.AuthRequest;
+import com.example.notesWeb.dtos.AuthResponse;
+import com.example.notesWeb.model.Status;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,9 @@ public class AuthService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private jwtProvider tokenProvider;
+
     //Logic handle request register user
     public String register(AuthRequest authRequest){
         if(userRepo.existsByUsername(authRequest.getUsername())){
@@ -30,5 +36,26 @@ public class AuthService {
 
         userRepo.save(user);
         return "User registered successfully";
+    }
+
+    //Logic handle request login user
+    public AuthResponse login(AuthRequest request){
+        User user = userRepo.findByUserName(request.getUsername())
+                .orElseThrow(() -> new IllegalArgumentException("Invalid username!"));
+
+        if(!passwordEncoder.matches(request.getPassword(), user.getPassword())){
+            throw new IllegalArgumentException("Invalid username");
+        }
+
+        String token = tokenProvider.generateToken(user);
+
+        return new AuthResponse(
+                token,
+                user.getId(),
+                user.getUsername(),
+                user.getRole(),
+                Status.SUCCESS,
+                "Login successful"
+        );
     }
 }

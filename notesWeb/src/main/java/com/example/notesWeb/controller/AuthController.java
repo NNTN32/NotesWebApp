@@ -1,6 +1,7 @@
 package com.example.notesWeb.controller;
 
 import com.example.notesWeb.dtos.AuthRequest;
+import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -25,4 +26,6 @@ public class AuthController {
             return ResponseEntity.badRequest().body(e.getMessage() + "Can not register user!");
         }
     }
+
+
 }
