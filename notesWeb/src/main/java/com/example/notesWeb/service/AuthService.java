@@ -40,7 +40,7 @@ public class AuthService {
 
     //Logic handle request login user
     public AuthResponse login(AuthRequest request){
-        User user = userRepo.findByUserName(request.getUsername())
+        User user = userRepo.findByUsername(request.getUsername())
                 .orElseThrow(() -> new IllegalArgumentException("Invalid username!"));
 
         if(!passwordEncoder.matches(request.getPassword(), user.getPassword())){
