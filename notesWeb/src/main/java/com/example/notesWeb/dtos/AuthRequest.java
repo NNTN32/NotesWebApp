@@ -2,12 +2,12 @@ package com.example.notesWeb.dtos;
 
 import com.example.notesWeb.model.Role;
 import com.example.notesWeb.model.Status;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 
 @AllArgsConstructor
+@NoArgsConstructor
 @Getter
+@Setter
 public class AuthRequest {
     private String email;
     private String username;
