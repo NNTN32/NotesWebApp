@@ -14,4 +14,12 @@ public class AuthRequest {
     private String password;
     private Role role;
     private Status status;
+    private String sessionID;
+
+    //Constructor call object
+    public AuthRequest(String username, String password, String sessionID){
+        this.username = username;
+        this.password = password;
+        this.sessionID = sessionID;
+    }
 }
