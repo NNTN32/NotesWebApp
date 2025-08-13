@@ -80,7 +80,7 @@ public class AuthRedisConsumer {
 
                             redisTemplate.opsForHash().putAll(resultKey, resultMap);
                             //Setting time expired for redis
-                            redisTemplate.expire(resultKey,Duration.ofMinutes(5));
+                            redisTemplate.expire(resultKey,Duration.ofMinutes(1));
                         } catch (Exception e) {
                             AuthResponse errorResponse = new AuthResponse(
                                     null,null, username, null, Status.FAIL, e.getMessage());
@@ -98,7 +98,7 @@ public class AuthRedisConsumer {
                             resultMap.put("message", e.getMessage());
 
                             redisTemplate.opsForHash().putAll(resultKey, resultMap);
-                            redisTemplate.expire(resultKey, Duration.ofMinutes(5));
+                            redisTemplate.expire(resultKey, Duration.ofMinutes(1));
 
                         }
                         redisTemplate.opsForStream().acknowledge(STREAM_KEY, GROUP, record.getId());
