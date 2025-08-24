@@ -1,6 +1,7 @@
 package com.example.notesWeb.model;
 
 
+import com.example.notesWeb.model.takeNotes.Notes;
 import jakarta.persistence.*;
 import lombok.Data;
 

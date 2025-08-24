@@ -1,5 +1,6 @@
-package com.example.notesWeb.model;
+package com.example.notesWeb.model.takeNotes;
 
+import com.example.notesWeb.model.User;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -16,10 +17,9 @@ public class Notes {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(length = 10000, nullable = false)
+    @Column(length = 100000, nullable = false)
     private String content;
 
-    private String multimedia; // link ảnh/video/audio
 
     @CreationTimestamp
     private LocalDateTime createdAt;
