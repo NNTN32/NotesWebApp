@@ -18,6 +18,9 @@ public class Notes {
     private Long id;
 
     @Column(length = 100000, nullable = false)
+    private String title;
+
+    @Column(length = 100000)
     private String content;
 
 
