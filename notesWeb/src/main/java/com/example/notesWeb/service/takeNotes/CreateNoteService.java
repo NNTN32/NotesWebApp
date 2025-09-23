@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class createNoteService {
+public class CreateNoteService {
     private final UserRepo userRepo;
     private final NotesRepo notesRepo;
 
@@ -21,8 +21,9 @@ public class createNoteService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         Notes notes = new Notes();
+        notes.setTitle(noteRequest.getTitle());
         notes.setContent(noteRequest.getContent());
-        notes.setCreatedAt(noteRequest.getCreatedAt());
+        notes.setUser(user);
 
         return notesRepo.save(notes);
     }
