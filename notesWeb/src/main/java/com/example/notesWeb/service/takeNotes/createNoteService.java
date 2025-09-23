@@ -1,4 +1,4 @@
-package com.example.notesWeb.service;
+package com.example.notesWeb.service.takeNotes;
 
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.model.User;
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class NoteService {
+public class createNoteService {
     private final UserRepo userRepo;
     private final NotesRepo notesRepo;
 
