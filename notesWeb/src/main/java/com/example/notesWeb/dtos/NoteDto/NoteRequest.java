@@ -12,5 +12,4 @@ import java.time.LocalDateTime;
 public class NoteRequest {
     private String content;
     private String title;
-    private LocalDateTime createdAt;
 }

@@ -1,0 +1,61 @@
+package com.example.notesWeb.controller.Notes;
+
+import com.example.notesWeb.config.jwtProvider;
+import com.example.notesWeb.dtos.NoteDto.NoteRequest;
+import com.example.notesWeb.model.User;
+import com.example.notesWeb.model.takeNotes.Notes;
+import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.service.takeNotes.CreateNoteService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/notes")
+public class NoteController {
+    @Autowired
+    private CreateNoteService createNoteService;
+
+    @Autowired
+    private jwtProvider jwtProvider;
+
+    @Autowired
+    private UserRepo userRepo;
+
+    //API Handle Create Notes
+    @PostMapping("/creates")
+    public ResponseEntity<?>create(
+            @RequestHeader("Authorization") String authorHeader,
+            @RequestBody NoteRequest noteRequest){
+        try{
+
+            //Check token make sure can get info of user
+            //Checking situation missing Bearer or no have Header
+            if(authorHeader == null || !authorHeader.startsWith("Bearer ")){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authorization header is missing or invalid.");
+            }
+
+            String token = authorHeader.substring(7);
+
+            //Checking situation if token has expired
+            if(jwtProvider.isTokenExpired(token)){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired. Please login again.");
+            }
+
+            //Checking situation if user really & still login
+            String username = jwtProvider.getUserFromJwt(token);
+            User user = userRepo.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
+
+            //Calling logic handle create Notes from service class
+            Notes newNote = createNoteService.createNote(noteRequest, username);
+            return ResponseEntity.ok(newNote);
+
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.badRequest().body(e.getMessage() + "Can not create notes!");
+        }
+    }
+
+}
