@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class CloudConfig {
+    //Configure Cloudinary SDK to upload files to the cloud.
     @Bean
     public Cloudinary cloudinary(){
         return new Cloudinary(ObjectUtils.asMap(
