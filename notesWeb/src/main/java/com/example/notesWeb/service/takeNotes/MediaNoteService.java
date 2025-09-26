@@ -25,7 +25,7 @@ public class MediaNoteService {
 
     //Logic handle about upload file on notes like photo, video, audio,...
     public NoteMedia uploadMedia(MediaNoteRequest mediaNoteRequest, String postID){
-        Notes notes = notesRepo.findPostExist(postID)
+        Notes notes = notesRepo.findById(Long.parseLong(postID))
                 .orElseThrow(() -> new UsernameNotFoundException("Post doesn't exist!"));
         try{
             //Logic handle upload file into Cloudinary
