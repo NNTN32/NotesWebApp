@@ -34,18 +34,17 @@ public class MediaNoteService {
                     mediaNoteRequest.getFile().getBytes(),
 
                     //Parameters configuration options for uploading
-                    ObjectUtils.asMap(
-                            "resource_type", getResourceType(mediaNoteRequest.getMediaType())
-                    )
+                    ObjectUtils.emptyMap()
             );
 
             //Get link URL for Sever
             String url = uploadResult.get("secure_url").toString();
+            String resourceType = uploadResult.get("resource_type").toString(); // image / video / raw
 
             //Create entity & save link into DB
             NoteMedia noteMedia = new NoteMedia();
             noteMedia.setUrl(url);
-            noteMedia.setType(mediaNoteRequest.getMediaType());
+            noteMedia.setType(MediaType.valueOf(resourceType.toUpperCase()));
             noteMedia.setNotes(notes);
 
             return mediaRepo.save(noteMedia);
@@ -61,7 +60,7 @@ public class MediaNoteService {
                 return "image";
             case VIDEO:
                 return "video";
-            case AUDIO:
+            case RAW:
                 return "auto";//Let Cloudinary defined
             default:
                 return "auto";//Save fallback
