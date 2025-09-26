@@ -11,5 +11,4 @@ import org.springframework.web.multipart.MultipartFile;
 @NoArgsConstructor
 public class MediaNoteRequest {
     private MultipartFile file;
-    private MediaType mediaType;
 }
