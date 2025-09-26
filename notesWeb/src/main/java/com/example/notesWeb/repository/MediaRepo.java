@@ -1,0 +1,7 @@
+package com.example.notesWeb.repository;
+
+import com.example.notesWeb.model.takeNotes.NoteMedia;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface MediaRepo extends JpaRepository<NoteMedia, Long> {
+}
