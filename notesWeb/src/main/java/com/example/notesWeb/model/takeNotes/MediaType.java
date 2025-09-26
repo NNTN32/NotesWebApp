@@ -3,5 +3,5 @@ package com.example.notesWeb.model.takeNotes;
 public enum MediaType {
     IMAGE,
     VIDEO,
-    AUDIO
+    RAW //File sounds like mp3, audio, voice,...
 }
