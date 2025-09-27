@@ -6,11 +6,14 @@ import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
+import com.example.notesWeb.service.takeNotes.TaskNoteService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/notes")
@@ -23,6 +26,9 @@ public class NoteController {
 
     @Autowired
     private UserRepo userRepo;
+
+    @Autowired
+    private TaskNoteService taskNoteService;
 
     //API Handle Create Notes
     @PostMapping("/creates")
@@ -56,6 +62,18 @@ public class NoteController {
         }catch (IllegalArgumentException e){
             return ResponseEntity.badRequest().body(e.getMessage() + "Can not create notes!");
         }
+    }
+
+    //API Handle Get List Notes
+    @GetMapping("/listNotes")
+    public ResponseEntity<List<Notes>> getAllNotes(){
+        //Calling back logic get all list notes from service class
+        List<Notes> notesList = taskNoteService.getAllListNote();
+
+        if(notesList.isEmpty()){
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(notesList);
     }
 
 }
