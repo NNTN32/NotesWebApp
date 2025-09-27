@@ -2,6 +2,8 @@ package com.example.notesWeb.model;
 
 
 import com.example.notesWeb.model.takeNotes.Notes;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -18,6 +20,8 @@ public class User {
 
     private String username;
     private String email;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @Enumerated(EnumType.STRING)
@@ -32,5 +36,6 @@ public class User {
     private UserInfo userInfo;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference //No loop
     private List<Notes> notes = new ArrayList<>();
 }

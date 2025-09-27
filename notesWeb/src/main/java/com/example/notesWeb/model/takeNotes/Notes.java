@@ -1,6 +1,7 @@
 package com.example.notesWeb.model.takeNotes;
 
 import com.example.notesWeb.model.User;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -32,5 +33,6 @@ public class Notes {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonBackReference //No loop
     private User user;
 }

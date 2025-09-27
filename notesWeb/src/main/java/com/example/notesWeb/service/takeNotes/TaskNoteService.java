@@ -21,7 +21,7 @@ public class TaskNoteService {
 
     //Logic take lists Note
     public List<Notes> getAllListNote(){
-        return notesRepo.findAll(Sort.by(Sort.Direction.DESC,"createdAt"));
+        return notesRepo.findAll(Sort.by(Sort.Direction.ASC,"createdAt"));
     }
 
 
