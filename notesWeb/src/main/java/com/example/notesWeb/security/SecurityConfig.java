@@ -36,7 +36,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/auth/register","/api/auth/login","/api/auth/login/result/{sessionId}",
                                 "/notes/creates",
-                                "/notes/listNotes",
+                                "/notes/listNotes/{userID}",
                                 "/media/uploads/{postID}"
                         ).permitAll()
                         .anyRequest().authenticated()
