@@ -7,6 +7,7 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
+import org.aspectj.weaver.ast.Not;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -65,15 +66,15 @@ public class NoteController {
     }
 
     //API Handle Get List Notes
-    @GetMapping("/listNotes")
-    public ResponseEntity<List<Notes>> getAllNotes(){
+    @GetMapping("/listNotes/{userID}")
+    public ResponseEntity<?> getAllNotesBasedUser(@PathVariable Long userID){
         //Calling back logic get all list notes from service class
-        List<Notes> notesList = taskNoteService.getAllListNote();
-
-        if(notesList.isEmpty()){
-            return ResponseEntity.noContent().build();
+        try{
+            List<Notes> notesList = taskNoteService.getAllListNote(userID);
+            return ResponseEntity.ok(notesList);
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Notes!");
         }
-        return ResponseEntity.ok(notesList);
     }
 
 }
