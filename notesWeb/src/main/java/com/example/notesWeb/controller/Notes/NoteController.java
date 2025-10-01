@@ -2,6 +2,7 @@ package com.example.notesWeb.controller.Notes;
 
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
+import com.example.notesWeb.dtos.NoteDto.NoteResponse;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 
 @RestController
@@ -77,4 +79,18 @@ public class NoteController {
         }
     }
 
+    //API Handle Get List NotesID
+    @GetMapping("/{noteID}")
+    public ResponseEntity<?> getNoteByID(@PathVariable Long noteID) {
+        try {
+            List<NoteResponse> noteResponseList = taskNoteService.getListNoteID(noteID);
+            return ResponseEntity.ok(noteResponseList);
+        } catch (IllegalArgumentException e) {
+            // Return message case can't fine NotesID
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            // Other unexpected error cases
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
+        }
+    }
 }
