@@ -3,6 +3,7 @@ package com.example.notesWeb.service.takeNotes;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
 import com.example.notesWeb.model.User;
+import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.MediaRepo;
 import com.example.notesWeb.repository.NotesRepo;
@@ -13,7 +14,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,5 +36,32 @@ public class TaskNoteService {
         }
     }
 
+    //Logic get list NoteID
+    public List<NoteResponse> getListNoteID(Long noteID) {
+        Notes note = notesRepo.findNoteId(noteID)
+                .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
+
+        List<NoteResponse> responseList = new ArrayList<>();
+
+        // Case if Notes have uploaded Media
+        if (note.getNoteMediaList() != null && !note.getNoteMediaList().isEmpty()) {
+            for (NoteMedia media : note.getNoteMediaList()) {
+                responseList.add(new NoteResponse(
+                        note.getTitle(),
+                        note.getContent(),
+                        media.getUrl()
+                ));
+            }
+        } else {
+            // Case if Notes have not uploaded Media yet
+            responseList.add(new NoteResponse(
+                    note.getTitle(),
+                    note.getContent(),
+                    null
+            ));
+        }
+
+        return responseList;
+    }
 
 }

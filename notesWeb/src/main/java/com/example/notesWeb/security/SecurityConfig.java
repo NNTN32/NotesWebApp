@@ -37,6 +37,7 @@ public class SecurityConfig {
                                 "/api/auth/register","/api/auth/login","/api/auth/login/result/{sessionId}",
                                 "/notes/creates",
                                 "/notes/listNotes/{userID}",
+                                "/notes/{noteID}",
                                 "/media/uploads/{postID}"
                         ).permitAll()
                         .anyRequest().authenticated()

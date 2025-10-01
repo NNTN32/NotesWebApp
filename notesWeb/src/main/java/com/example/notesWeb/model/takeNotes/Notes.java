@@ -2,12 +2,14 @@ package com.example.notesWeb.model.takeNotes;
 
 import com.example.notesWeb.model.User;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -35,4 +37,9 @@ public class Notes {
     @JoinColumn(name = "user_id", nullable = false)
     @JsonBackReference //No loop
     private User user;
+
+    //Add reverse relationship to join table NoteMedia
+    @OneToMany(mappedBy = "notes", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
+    private List<NoteMedia> noteMediaList;
 }
