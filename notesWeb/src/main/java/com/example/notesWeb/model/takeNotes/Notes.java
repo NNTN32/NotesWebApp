@@ -39,7 +39,7 @@ public class Notes {
     private User user;
 
     //Add reverse relationship to join table NoteMedia
-    @OneToMany(mappedBy = "notes", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "notes", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true) //Add noteID key constraint on noteMedia side delete by
     @JsonManagedReference
     private List<NoteMedia> noteMediaList;
 }

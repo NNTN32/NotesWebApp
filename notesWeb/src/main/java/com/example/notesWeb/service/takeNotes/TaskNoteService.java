@@ -10,6 +10,7 @@ import com.example.notesWeb.repository.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -64,4 +65,15 @@ public class TaskNoteService {
         return responseList;
     }
 
+    //Logic delete Post
+    public void deleteNote(Long noteID, Long userID){
+        Notes note = notesRepo.findNoteId(noteID)
+                .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
+
+        if (!note.getUser().getId().equals(userID)) {
+            throw new AccessDeniedException("You are not authorized to delete this note!");
+        }
+
+        notesRepo.delete(note);
+    }
 }

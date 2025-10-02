@@ -12,6 +12,7 @@ import org.aspectj.weaver.ast.Not;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -90,6 +91,21 @@ public class NoteController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
             // Other unexpected error cases
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
+        }
+    }
+
+    //API Handle Delete Notes By User
+    @DeleteMapping("/delete/{noteID}")
+    public ResponseEntity<?> deleteNote(@PathVariable Long noteID, @RequestParam Long userID){
+        try{
+            taskNoteService.deleteNote(noteID, userID);
+            return ResponseEntity.ok("Note Deleted Successfully");
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Notes to delete!");
+        }catch (AccessDeniedException e){
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }catch (Exception e){
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
         }
     }

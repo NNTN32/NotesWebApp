@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/notes/creates",
                                 "/notes/listNotes/{userID}",
                                 "/notes/{noteID}",
+                                "/notes/delete/{noteID}",
                                 "/media/uploads/{postID}"
                         ).permitAll()
                         .anyRequest().authenticated()
