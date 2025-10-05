@@ -7,9 +7,11 @@ import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.takeNotes.MediaNoteService;
+import com.example.notesWeb.service.takeNotes.TaskMediaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +26,9 @@ public class MediaNoteController {
 
     @Autowired
     private UserRepo userRepo;
+
+    @Autowired
+    private TaskMediaService taskMediaService;
 
     //API Handle Uploaded Media Notes
     @PostMapping("/uploads/{postID}")
@@ -60,6 +65,19 @@ public class MediaNoteController {
 
         }catch (IllegalArgumentException e){
             return ResponseEntity.badRequest().body(e.getMessage() + "Can not create notes!");
+        }
+    }
+
+    //API Handle Delete MediaNote
+    @DeleteMapping("/delete/{mediaID}")
+    public ResponseEntity<?> deleteNotesFile(@PathVariable Long mediaID, @RequestParam Long noteId){
+        try{
+            taskMediaService.deleteMedia(noteId, mediaID);
+            return ResponseEntity.ok("File have been deleted success !");
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find File to delete!");
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
         }
     }
 }
