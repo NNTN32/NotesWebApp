@@ -14,4 +14,7 @@ public interface NotesRepo extends JpaRepository<Notes, Long> {
     //Fix queries using JPQL works with entity and field names in classes & Mapping 2 sides instead of SQL basic
     @Query("SELECT DISTINCT n FROM Notes n LEFT JOIN FETCH n.noteMediaList WHERE n.id = :noteID")
     Optional<Notes> findNoteId(@Param("noteID") Long noteID);
+
+    @Query("SELECT n FROM Notes n WHERE n.id = :noteID")
+    Optional<Notes> findNote(@Param("noteID") Long noteID);
 }
