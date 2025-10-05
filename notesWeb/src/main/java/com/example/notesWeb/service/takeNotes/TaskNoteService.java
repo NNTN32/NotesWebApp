@@ -15,6 +15,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -75,5 +76,33 @@ public class TaskNoteService {
         }
 
         notesRepo.delete(note);
+    }
+
+    //Logic handle update Note
+    public Notes updateNote(NoteRequest noteRequest, Long userID, Long noteID){
+        User user = userRepo.findById(userID)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userID));
+
+        Notes notes = notesRepo.findNoteId(noteID)
+                .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
+        try{
+            //Checking authority of owner Notes
+            if(!notes.getUser().getId().equals(user.getId())){
+                throw new AccessDeniedException("You're not authorized to update this Notes!");
+            }
+
+            //Main logic update what field user input
+            if(noteRequest.getTitle() != null && !noteRequest.getTitle().isBlank()){
+                notes.setTitle(noteRequest.getTitle());
+            }
+            if(noteRequest.getContent() != null && !noteRequest.getContent().isBlank()){
+                notes.setContent(noteRequest.getContent());
+            }
+
+            notes.setUpdatedAt(LocalDateTime.now());
+            return notesRepo.save(notes);
+        }catch (Exception e){
+            throw new RuntimeException("Failed to update Notes! " + e.getMessage());
+        }
     }
 }
