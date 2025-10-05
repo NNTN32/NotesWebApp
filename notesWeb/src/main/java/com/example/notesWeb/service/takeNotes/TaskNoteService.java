@@ -79,11 +79,11 @@ public class TaskNoteService {
     }
 
     //Logic handle update Note
-    public Notes updateNote(NoteRequest noteRequest, Long userID, Long noteID){
+    public Notes updateNote(NoteRequest noteRequest, Long noteID, Long userID){
         User user = userRepo.findById(userID)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userID));
 
-        Notes notes = notesRepo.findNoteId(noteID)
+        Notes notes = notesRepo.findNote(noteID)
                 .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
         try{
             //Checking authority of owner Notes

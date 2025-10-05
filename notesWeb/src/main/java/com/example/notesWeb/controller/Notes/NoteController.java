@@ -129,7 +129,10 @@ public class NoteController {
             }
 
             //Checking situation if user really & still login
-            Long userID = Long.parseLong(jwtProvider.getUserFromJwt(token));//Convert userID from String to Long
+            String username = jwtProvider.getUserFromJwt(token);
+            User user = userRepo.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
+            Long userID = user.getId();
 
             Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
             return ResponseEntity.ok(updated);
