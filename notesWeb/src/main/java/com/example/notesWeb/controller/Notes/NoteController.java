@@ -109,4 +109,37 @@ public class NoteController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
         }
     }
+
+    //API Handle Update Notes By User
+    @PutMapping("/update/{noteID}")
+    public ResponseEntity<?>updateNotes(
+            @PathVariable Long noteID,
+            @RequestHeader("Authorization") String authorHeader,
+            @RequestBody NoteRequest noteRequest){
+        try{
+            if(authorHeader == null || !authorHeader.startsWith("Bearer ")){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authorization header is missing or invalid.");
+            }
+
+            String token = authorHeader.substring(7);
+
+            //Checking situation if token has expired
+            if(jwtProvider.isTokenExpired(token)){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired. Please login again.");
+            }
+
+            //Checking situation if user really & still login
+            Long userID = Long.parseLong(jwtProvider.getUserFromJwt(token));//Convert userID from String to Long
+
+            Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
+            return ResponseEntity.ok(updated);
+
+        }catch (AccessDeniedException e){
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage() + "User doesn't have authority to update Notes!");
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Notes doesn't exist!");
+        }catch (Exception e){
+            return ResponseEntity.internalServerError().body(e.getMessage() + "Failed to update Notes!");
+        }
+    }
 }
