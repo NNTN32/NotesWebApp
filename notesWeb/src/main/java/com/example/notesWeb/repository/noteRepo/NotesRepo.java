@@ -1,4 +1,4 @@
-package com.example.notesWeb.repository;
+package com.example.notesWeb.repository.noteRepo;
 
 import com.example.notesWeb.model.takeNotes.Notes;
 import io.lettuce.core.dynamic.annotation.Param;

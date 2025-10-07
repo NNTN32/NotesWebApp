@@ -1,9 +1,8 @@
 package com.example.notesWeb.service.takeNotes;
 
 import com.example.notesWeb.model.takeNotes.NoteMedia;
-import com.example.notesWeb.model.takeNotes.Notes;
-import com.example.notesWeb.repository.MediaRepo;
-import com.example.notesWeb.repository.NotesRepo;
+import com.example.notesWeb.repository.noteRepo.MediaRepo;
+import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

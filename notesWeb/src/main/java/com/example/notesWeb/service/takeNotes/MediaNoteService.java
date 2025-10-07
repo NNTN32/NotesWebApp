@@ -6,15 +6,14 @@ import com.example.notesWeb.dtos.NoteDto.MediaNoteRequest;
 import com.example.notesWeb.model.takeNotes.MediaType;
 import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
-import com.example.notesWeb.repository.MediaRepo;
-import com.example.notesWeb.repository.NotesRepo;
+import com.example.notesWeb.repository.noteRepo.MediaRepo;
+import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor

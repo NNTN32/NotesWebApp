@@ -3,7 +3,7 @@ package com.example.notesWeb.service.takeNotes;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
-import com.example.notesWeb.repository.NotesRepo;
+import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
