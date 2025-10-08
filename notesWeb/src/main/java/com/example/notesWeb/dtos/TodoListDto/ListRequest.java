@@ -11,5 +11,4 @@ import lombok.NoArgsConstructor;
 public class ListRequest {
     private String heading;
     private String purport;
-    private State state;
 }
