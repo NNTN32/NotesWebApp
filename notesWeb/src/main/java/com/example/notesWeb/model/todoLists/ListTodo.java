@@ -30,7 +30,7 @@ public class ListTodo {
     private LocalDateTime updatedAt;
 
     @Enumerated(EnumType.STRING)
-    private Status status;
+    private State state;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
