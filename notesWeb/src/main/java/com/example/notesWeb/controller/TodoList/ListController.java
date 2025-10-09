@@ -6,12 +6,15 @@ import com.example.notesWeb.dtos.TodoListDto.ListRequest;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.service.todoLists.TaskListService;
 import com.example.notesWeb.service.todoLists.TodoListService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/todo")
@@ -24,6 +27,9 @@ public class ListController {
 
     @Autowired
     private jwtProvider jwtProvider;
+
+    @Autowired
+    private TaskListService taskListService;
 
     //API Call back logic create To do lists
     @PostMapping("/createList")
@@ -84,5 +90,17 @@ public class ListController {
             throw new RuntimeException(e);
         }
     }
+
+    //API Get List to do of user
+    @GetMapping("/listUser/{userId}")
+    public ResponseEntity<?> getList(@PathVariable Long userId){
+        try{
+            List<ListTodo> todoList = taskListService.getAllTodoList(userId);
+            return ResponseEntity.ok(todoList);
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Lists!");
+        }
+    }
+
 
 }
