@@ -22,7 +22,7 @@ public class TaskListService {
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userId));
         try{
-            return todoRepo.findTodoListOfUserId(user.getId());
+            return todoRepo.findByUserId(user.getId());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
