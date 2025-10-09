@@ -1,0 +1,57 @@
+package com.example.notesWeb.controller.TodoList;
+
+
+import com.example.notesWeb.config.jwtProvider;
+import com.example.notesWeb.dtos.TodoListDto.ListRequest;
+import com.example.notesWeb.model.User;
+import com.example.notesWeb.model.todoLists.ListTodo;
+import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.service.todoLists.TodoListService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/todo")
+public class ListController {
+    @Autowired
+    private TodoListService listService;
+
+    @Autowired
+    private UserRepo userRepo;
+
+    @Autowired
+    private jwtProvider jwtProvider;
+
+    //API Call back logic create To do lists
+    @PostMapping("/createList")
+    public ResponseEntity<?> create(
+            @RequestHeader("Authorization") String authoHeader,
+            @RequestBody ListRequest listRequest){
+        try{
+            if(authoHeader == null || !authoHeader.startsWith("Bearer ")){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authorization header is missing or invalid.");
+            }
+
+            String token = authoHeader.substring(7);
+
+            //Checking situation if token has expired
+            if(jwtProvider.isTokenExpired(token)){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired. Please login again.");
+            }
+
+            String userName = jwtProvider.getUserFromJwt(token);
+            User user = userRepo.findByUsername(userName)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
+
+            Long userId = user.getId();
+
+            ListTodo created = listService.createList(listRequest, userId);
+            return ResponseEntity.ok(created);
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.badRequest().body(e.getMessage() + "Can not create to do lists!");
+        }
+    }
+}
