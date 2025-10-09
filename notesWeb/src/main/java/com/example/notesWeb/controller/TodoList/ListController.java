@@ -11,6 +11,7 @@ import com.example.notesWeb.service.todoLists.TodoListService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -99,6 +100,21 @@ public class ListController {
             return ResponseEntity.ok(todoList);
         }catch (IllegalArgumentException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Lists!");
+        }
+    }
+
+    //API Delete list to do of user
+    @DeleteMapping("/delete/{idList}")
+    public ResponseEntity<?> deleteList(@PathVariable Long idList, @RequestParam Long idUser){
+        try{
+            taskListService.deleteList(idList, idUser);
+            return ResponseEntity.ok("List has been deleted successfully !");
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Lists to delete!");
+        }catch (AccessDeniedException e){
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }catch (Exception e){
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Unexpected error: " + e.getMessage());
         }
     }
 
