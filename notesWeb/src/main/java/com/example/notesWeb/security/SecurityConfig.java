@@ -44,7 +44,8 @@ public class SecurityConfig {
                                 "/media/delete/{mediaID}",
                                 "/todo/createList",
                                 "/todo/update/{todoID}",
-                                "/todo/listUser/{userId}"
+                                "/todo/listUser/{userId}",
+                                "/todo/delete/{idList}"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

@@ -34,7 +34,7 @@ public class TaskListService {
         ListTodo listTodo = todoRepo.findById(idList)
                 .orElseThrow(() -> new IllegalArgumentException("List doesn't exist! " + idList));
 
-        if(!listTodo.getUser().equals(idUser)){
+        if(!listTodo.getUser().getId().equals(idUser)){
             throw new AccessDeniedException("You are not authorized to delete this note!");
         }
 
