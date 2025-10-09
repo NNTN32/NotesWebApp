@@ -42,7 +42,8 @@ public class SecurityConfig {
                                 "/notes/update/{noteID}",
                                 "/media/uploads/{postID}",
                                 "/media/delete/{mediaID}",
-                                "/todo/createList"
+                                "/todo/createList",
+                                "/todo/update/{todoID}"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

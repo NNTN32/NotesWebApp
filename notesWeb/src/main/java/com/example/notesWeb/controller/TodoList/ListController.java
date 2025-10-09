@@ -54,4 +54,35 @@ public class ListController {
             return ResponseEntity.badRequest().body(e.getMessage() + "Can not create to do lists!");
         }
     }
+
+    //API Call back logic update state to do lists
+    @PutMapping("/update/{todoID}")
+    public ResponseEntity<?> updateLists(
+            @PathVariable Long todoID,
+            @RequestHeader("Authorization") String authorHeader
+    ){
+        try{
+            if(authorHeader == null || !authorHeader.startsWith("Bearer ")){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authorization header is missing or invalid.");
+            }
+
+            String token = authorHeader.substring(7);
+
+            //Checking situation if token has expired
+            if(jwtProvider.isTokenExpired(token)){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired. Please login again.");
+            }
+
+            String userName = jwtProvider.getUserFromJwt(token);
+            User user = userRepo.findByUsername(userName)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
+
+            Long userid = user.getId();
+            ListTodo updatedLists = listService.markDone(todoID, userid);
+            return ResponseEntity.ok(updatedLists);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
