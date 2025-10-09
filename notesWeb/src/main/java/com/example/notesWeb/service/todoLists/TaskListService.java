@@ -6,6 +6,7 @@ import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.todoRepo.TodoRepo;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
@@ -26,5 +27,17 @@ public class TaskListService {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    //Logic delete list to do of users
+    public void deleteList(Long idList, Long idUser){
+        ListTodo listTodo = todoRepo.findById(idList)
+                .orElseThrow(() -> new IllegalArgumentException("List doesn't exist! " + idList));
+
+        if(!listTodo.getUser().equals(idUser)){
+            throw new AccessDeniedException("You are not authorized to delete this note!");
+        }
+
+        todoRepo.delete(listTodo);
     }
 }
