@@ -118,5 +118,40 @@ public class ListController {
         }
     }
 
+    //API Update to do lists of user
+    @PutMapping("/listUpdate/{idList}")
+    public ResponseEntity<?> updated(
+            @PathVariable Long idList,
+            @RequestHeader("Authorization") String authorHeader,
+            @RequestBody ListRequest listRequest
+    ){
+        try{
+            if(authorHeader == null || !authorHeader.startsWith("Bearer ")){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authorization header is missing or invalid.");
+            }
+
+            String token = authorHeader.substring(7);
+
+            if(jwtProvider.isTokenExpired(token)){
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired. Please login again.");
+            }
+
+            String username = jwtProvider.getUserFromJwt(token);
+            User user = userRepo.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
+            Long idUser = user.getId();
+
+            ListTodo listUpdated = taskListService.updateLists(listRequest, idList, idUser);
+            return ResponseEntity.ok(listUpdated);
+
+        }catch (AccessDeniedException e){
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage() + "User doesn't have authority to update List!");
+        }catch (IllegalArgumentException e){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "List doesn't exist!");
+        }catch (Exception e){
+            return ResponseEntity.internalServerError().body(e.getMessage() + "Failed to update List!");
+        }
+    }
+
 
 }

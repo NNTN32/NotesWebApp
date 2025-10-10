@@ -45,7 +45,8 @@ public class SecurityConfig {
                                 "/todo/createList",
                                 "/todo/update/{todoID}",
                                 "/todo/listUser/{userId}",
-                                "/todo/delete/{idList}"
+                                "/todo/delete/{idList}",
+                                "/todo/listUpdate/{idList}"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )
