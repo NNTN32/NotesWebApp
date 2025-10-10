@@ -4,6 +4,7 @@ package com.example.notesWeb.service.todoLists;
 import com.example.notesWeb.dtos.TodoListDto.ListRequest;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.todoLists.ListTodo;
+import com.example.notesWeb.model.todoLists.State;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.todoRepo.TodoRepo;
 import lombok.RequiredArgsConstructor;
@@ -53,20 +54,21 @@ public class  TaskListService {
         ListTodo todo = todoRepo.findById(idList)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + idList));
 
+        if(todo.getState() == State.CORRECT){
+            throw new IllegalStateException("This list is marked as CORRECT and cannot be updated!");
+        }
+
+        if (!todo.getUser().getId().equals(user.getId())){
+            throw new AccessDeniedException("You're not authorized to update this Lists!");
+        }
+
         try{
-            if (!todo.getUser().getId().equals(user.getId())){
-                throw new AccessDeniedException("You're not authorized to update this Lists!");
+            if(listRequest.getHeading() != null && !listRequest.getHeading().isBlank()){
+                todo.setHeading(listRequest.getHeading());
             }
-
-            if(todo.getState() == FAIL){
-                if(listRequest.getHeading() != null && !listRequest.getHeading().isBlank()){
-                    todo.setHeading(listRequest.getHeading());
-                }
-                if(listRequest.getPurport() != null && !listRequest.getPurport().isBlank()){
-                    todo.setPurport(listRequest.getPurport());
-                }
+            if(listRequest.getPurport() != null && !listRequest.getPurport().isBlank()){
+                todo.setPurport(listRequest.getPurport());
             }
-
             todo.setUpdatedAt(LocalDateTime.now());
             return todoRepo.save(todo);
         }catch (Exception e){
