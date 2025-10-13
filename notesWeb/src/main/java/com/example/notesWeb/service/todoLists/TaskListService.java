@@ -36,7 +36,7 @@ public class  TaskListService {
     }
 
     //Logic delete list to do of users
-    public void deleteList(Long idList, Long idUser){
+    public void deleteList(UUID idList, UUID idUser){
         ListTodo listTodo = todoRepo.findById(idList)
                 .orElseThrow(() -> new IllegalArgumentException("List doesn't exist! " + idList));
 
@@ -48,7 +48,7 @@ public class  TaskListService {
     }
 
     //Logic update to do lists
-    public ListTodo updateLists(ListRequest listRequest, Long idList, Long idUser){
+    public ListTodo updateLists(ListRequest listRequest, UUID idList, UUID idUser){
         User user = userRepo.findById(idUser)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + idUser));
 
