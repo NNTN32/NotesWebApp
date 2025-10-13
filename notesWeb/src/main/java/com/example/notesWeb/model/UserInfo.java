@@ -4,14 +4,16 @@ import jakarta.persistence.*;
 import lombok.Data;
 
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Entity
 @Table(name = "userInfo")
 public class UserInfo {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+    @GeneratedValue
+    private UUID idInfo;
 
     private String avatar;
     private String phoneNumb;
