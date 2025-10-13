@@ -13,7 +13,7 @@ public class UserInfo {
     @Id
     @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
     @GeneratedValue
-    private UUID idInfo;
+    private UUID id;
 
     private String avatar;
     private String phoneNumb;

@@ -8,14 +8,16 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Data
 @Entity
 @Table(name = "toDo")
 public class ListTodo {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long idList;
+    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+    @GeneratedValue
+    private UUID idList;
 
     @Column(length = 100000, nullable = false)
     private String heading;
