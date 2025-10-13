@@ -17,7 +17,8 @@ import java.util.List;
 public class Notes {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+    @GeneratedValue
     private Long id;
 
     @Column(length = 100000, nullable = false)
