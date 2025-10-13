@@ -10,6 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Data
 @Entity
@@ -19,7 +20,7 @@ public class Notes {
     @Id
     @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
     @GeneratedValue
-    private Long id;
+    private UUID id;
 
     @Column(length = 100000, nullable = false)
     private String title;

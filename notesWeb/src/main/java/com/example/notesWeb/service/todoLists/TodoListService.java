@@ -12,6 +12,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class TodoListService {
@@ -19,7 +21,7 @@ public class TodoListService {
     private final TodoRepo todoRepo;
 
     //Logic create list to do for users
-    public ListTodo createList(ListRequest listRequest, Long userId){
+    public ListTodo createList(ListRequest listRequest, UUID userId){
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userId));
 
@@ -33,7 +35,7 @@ public class TodoListService {
     }
 
     //Logic update status of to do list
-    public ListTodo markDone(Long todoID, Long userid){
+    public ListTodo markDone(UUID todoID, UUID userid){
         ListTodo todo = todoRepo.findById(todoID)
                 .orElseThrow(() -> new IllegalArgumentException("Todo not found" + todoID));
 
