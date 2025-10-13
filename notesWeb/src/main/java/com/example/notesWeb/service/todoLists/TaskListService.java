@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static com.example.notesWeb.model.todoLists.State.FAIL;
 
@@ -24,7 +25,7 @@ public class  TaskListService {
     private final TodoRepo todoRepo;
 
     //Logic get list to do of users
-    public List<ListTodo> getAllTodoList(Long userId){
+    public List<ListTodo> getAllTodoList(UUID userId){
         User user = userRepo.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userId));
         try{
