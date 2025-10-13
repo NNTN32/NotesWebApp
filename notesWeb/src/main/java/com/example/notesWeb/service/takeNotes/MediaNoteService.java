@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -23,8 +24,8 @@ public class MediaNoteService {
     private final Cloudinary cloudinary;
 
     //Logic handle about upload file on notes like photo, video, audio,...
-    public NoteMedia uploadMedia(MediaNoteRequest mediaNoteRequest, String postID){
-        Notes notes = notesRepo.findById(Long.parseLong(postID))
+    public NoteMedia uploadMedia(MediaNoteRequest mediaNoteRequest, UUID postID){
+        Notes notes = notesRepo.findById(postID)
                 .orElseThrow(() -> new UsernameNotFoundException("Post doesn't exist!"));
         try{
             //Logic handle upload file into Cloudinary
