@@ -8,7 +8,8 @@ import lombok.Data;
 @Table(name = "noteMedia")
 public class NoteMedia {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+    @GeneratedValue
     private Long id;
 
     private String url;

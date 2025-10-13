@@ -6,6 +6,8 @@ import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class TaskMediaService {
@@ -13,7 +15,7 @@ public class TaskMediaService {
     private final MediaRepo mediaRepo;
 
     //Logic handle delete Media of notes
-    public void deleteMedia(Long noteId, Long mediaID){
+    public void deleteMedia(UUID noteId, UUID mediaID){
         NoteMedia noteMedia = mediaRepo.findById(mediaID)
                 .orElseThrow(() -> new IllegalArgumentException("File haven't uploaded yet! " + mediaID));
 

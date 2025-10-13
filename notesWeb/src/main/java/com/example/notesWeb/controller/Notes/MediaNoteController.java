@@ -15,6 +15,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/media")
 public class MediaNoteController {
@@ -33,7 +35,7 @@ public class MediaNoteController {
     //API Handle Uploaded Media Notes
     @PostMapping("/uploads/{postID}")
     public ResponseEntity<?> upload(
-            @PathVariable String postID,
+            @PathVariable UUID postID,
             @RequestHeader("Authorization") String authorHeader,
             //Use ModelAttribute make automatically bind all form data to the DTO object (easy maintain).
             //Only user RequestParam to upload only one file without metadata
@@ -70,7 +72,7 @@ public class MediaNoteController {
 
     //API Handle Delete MediaNote
     @DeleteMapping("/delete/{mediaID}")
-    public ResponseEntity<?> deleteNotesFile(@PathVariable Long mediaID, @RequestParam Long noteId){
+    public ResponseEntity<?> deleteNotesFile(@PathVariable UUID mediaID, @RequestParam UUID noteId){
         try{
             taskMediaService.deleteMedia(noteId, mediaID);
             return ResponseEntity.ok("File have been deleted success !");

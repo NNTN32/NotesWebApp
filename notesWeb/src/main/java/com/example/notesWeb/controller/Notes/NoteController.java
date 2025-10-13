@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/notes")
@@ -70,7 +71,7 @@ public class NoteController {
 
     //API Handle Get List Notes
     @GetMapping("/listNotes/{userID}")
-    public ResponseEntity<?> getAllNotesBasedUser(@PathVariable Long userID){
+    public ResponseEntity<?> getAllNotesBasedUser(@PathVariable UUID userID){
         //Calling back logic get all list notes from service class
         try{
             List<Notes> notesList = taskNoteService.getAllListNote(userID);
@@ -82,7 +83,7 @@ public class NoteController {
 
     //API Handle Get List NotesID
     @GetMapping("/{noteID}")
-    public ResponseEntity<?> getNoteByID(@PathVariable Long noteID) {
+    public ResponseEntity<?> getNoteByID(@PathVariable UUID noteID) {
         try {
             List<NoteResponse> noteResponseList = taskNoteService.getListNoteID(noteID);
             return ResponseEntity.ok(noteResponseList);
@@ -97,7 +98,7 @@ public class NoteController {
 
     //API Handle Delete Notes By User
     @DeleteMapping("/delete/{noteID}")
-    public ResponseEntity<?> deleteNote(@PathVariable Long noteID, @RequestParam Long userID){
+    public ResponseEntity<?> deleteNote(@PathVariable UUID noteID, @RequestParam UUID userID){
         try{
             taskNoteService.deleteNote(noteID, userID);
             return ResponseEntity.ok("Note Deleted Successfully");
@@ -113,7 +114,7 @@ public class NoteController {
     //API Handle Update Notes By User
     @PutMapping("/update/{noteID}")
     public ResponseEntity<?>updateNotes(
-            @PathVariable Long noteID,
+            @PathVariable UUID noteID,
             @RequestHeader("Authorization") String authorHeader,
             @RequestBody NoteRequest noteRequest){
         try{
@@ -132,7 +133,7 @@ public class NoteController {
             String username = jwtProvider.getUserFromJwt(token);
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
-            Long userID = user.getId();
+            UUID userID = user.getId();
 
             Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
             return ResponseEntity.ok(updated);

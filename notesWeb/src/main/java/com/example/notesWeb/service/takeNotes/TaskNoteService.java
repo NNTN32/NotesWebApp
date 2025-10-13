@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -25,7 +26,7 @@ public class TaskNoteService {
     private final MediaRepo mediaRepo;
 
     //Logic take lists Note
-    public List<Notes> getAllListNote(Long userID){
+    public List<Notes> getAllListNote(UUID userID){
         User user = userRepo.findById(userID)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userID));
         try{
@@ -36,7 +37,7 @@ public class TaskNoteService {
     }
 
     //Logic get list NoteID
-    public List<NoteResponse> getListNoteID(Long noteID) {
+    public List<NoteResponse> getListNoteID(UUID noteID) {
         Notes note = notesRepo.findNoteId(noteID)
                 .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
 
@@ -64,7 +65,7 @@ public class TaskNoteService {
     }
 
     //Logic delete Post
-    public void deleteNote(Long noteID, Long userID){
+    public void deleteNote(UUID noteID, UUID userID){
         Notes note = notesRepo.findNoteId(noteID)
                 .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
 
@@ -76,7 +77,7 @@ public class TaskNoteService {
     }
 
     //Logic handle update Note
-    public Notes updateNote(NoteRequest noteRequest, Long noteID, Long userID){
+    public Notes updateNote(NoteRequest noteRequest, UUID noteID, UUID userID){
         User user = userRepo.findById(userID)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userID));
 
