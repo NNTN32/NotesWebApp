@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/todo")
@@ -53,7 +54,7 @@ public class ListController {
             User user = userRepo.findByUsername(userName)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
-            Long userId = user.getId();
+            UUID userId = user.getId();
 
             ListTodo created = listService.createList(listRequest, userId);
             return ResponseEntity.ok(created);
@@ -65,7 +66,7 @@ public class ListController {
     //API Call back logic update state to do lists
     @PutMapping("/update/{todoID}")
     public ResponseEntity<?> updateLists(
-            @PathVariable Long todoID,
+            @PathVariable UUID todoID,
             @RequestHeader("Authorization") String authorHeader
     ){
         try{
@@ -84,7 +85,7 @@ public class ListController {
             User user = userRepo.findByUsername(userName)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
-            Long userid = user.getId();
+            UUID userid = user.getId();
             ListTodo updatedLists = listService.markDone(todoID, userid);
             return ResponseEntity.ok(updatedLists);
         } catch (Exception e) {
@@ -94,7 +95,7 @@ public class ListController {
 
     //API Get List to do of user
     @GetMapping("/listUser/{userId}")
-    public ResponseEntity<?> getList(@PathVariable Long userId){
+    public ResponseEntity<?> getList(@PathVariable UUID userId){
         try{
             List<ListTodo> todoList = taskListService.getAllTodoList(userId);
             return ResponseEntity.ok(todoList);
@@ -105,7 +106,7 @@ public class ListController {
 
     //API Delete list to do of user
     @DeleteMapping("/delete/{idList}")
-    public ResponseEntity<?> deleteList(@PathVariable Long idList, @RequestParam Long idUser){
+    public ResponseEntity<?> deleteList(@PathVariable UUID idList, @RequestParam UUID idUser){
         try{
             taskListService.deleteList(idList, idUser);
             return ResponseEntity.ok("List has been deleted successfully !");
@@ -121,7 +122,7 @@ public class ListController {
     //API Update to do lists of user
     @PutMapping("/listUpdate/{idList}")
     public ResponseEntity<?> updated(
-            @PathVariable Long idList,
+            @PathVariable UUID idList,
             @RequestHeader("Authorization") String authorHeader,
             @RequestBody ListRequest listRequest
     ){
@@ -139,7 +140,7 @@ public class ListController {
             String username = jwtProvider.getUserFromJwt(token);
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
-            Long idUser = user.getId();
+            UUID idUser = user.getId();
 
             ListTodo listUpdated = taskListService.updateLists(listRequest, idList, idUser);
             return ResponseEntity.ok(listUpdated);
