@@ -1,6 +1,7 @@
 package com.example.notesWeb.exception;
 
 import com.example.notesWeb.dtos.AuthRequest;
+import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.StreamRecords;
@@ -18,6 +19,8 @@ public class AuthRedisProducer {
 
     private static final String STREAM_KEY = "auth:login:stream";
 
+    private static final String sTREAM_kEY= "notes:create:stream";
+
     public void sendLoginRequest(AuthRequest authRequest){
         //Using hashmap for key String & any value = object
         Map<String, Object> data = new HashMap<>();
@@ -31,5 +34,18 @@ public class AuthRedisProducer {
                 .add(StreamRecords.newRecord()
                         .in("auth:login:stream")
                         .ofMap(data));
+    }
+
+    //Push message of request create Notes into Redis Stream
+    public void sendNoteRequest(NoteRequest noteRequest){
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("content", noteRequest.getContent());
+        fields.put("title", noteRequest.getTitle());
+
+        System.out.println("Sending request to Redis Stream: " + fields);
+        redisTemplate.opsForStream()
+                .add(StreamRecords.newRecord()
+                        .in("notes:create:stream")
+                        .ofMap(fields));
     }
 }
