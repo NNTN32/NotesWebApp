@@ -19,10 +19,11 @@ public class NoteRedisProducer {
     private static final String sTREAM_kEY= "notes:create:stream";
 
     //Push message of request create Notes into Redis Stream
-    public void sendNoteRequest(NoteRequest noteRequest){
+    public void sendNoteRequest(NoteRequest noteRequest, String username){
         Map<String, Object> fields = new HashMap<>();
         fields.put("content", noteRequest.getContent());
         fields.put("title", noteRequest.getTitle());
+        fields.put("username", username);
 
         System.out.println("Sending request to Redis Stream: " + fields);
         redisTemplate.opsForStream()
