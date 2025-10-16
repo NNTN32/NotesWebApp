@@ -22,7 +22,7 @@ public class MediaRedisProducer {
     private final SecurityUploadService securityUploadService;
     private static final String key_STREAM = "media:create:stream";
 
-    public void sendMediaRequest(MultipartFile file, UUID postID, String username){
+    public void sendMediaRequest(String username, UUID postID, MultipartFile file){
         try{
             String tempUrl = securityUploadService.uploadTemporary(file);
             Map<String, String> mediaFields = new HashMap<>();

@@ -2,6 +2,7 @@ package com.example.notesWeb.controller.Notes;
 
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.NoteDto.MediaNoteRequest;
+import com.example.notesWeb.exception.redis.mediaNoteRedis.MediaRedisProducer;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
@@ -32,6 +33,9 @@ public class MediaNoteController {
     @Autowired
     private TaskMediaService taskMediaService;
 
+    @Autowired
+    private MediaRedisProducer mediaRedisProducer;
+
     //API Handle Uploaded Media Notes
     @PostMapping("/uploads/{postID}")
     public ResponseEntity<?> upload(
@@ -61,9 +65,8 @@ public class MediaNoteController {
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
-            //Calling logic handle upload Media Notes from service class
-            NoteMedia noteMedia = mediaNoteService.uploadMedia(mediaNoteRequest, postID);
-            return ResponseEntity.ok(noteMedia);
+            mediaRedisProducer.sendMediaRequest(username, postID, mediaNoteRequest.getFile());
+            return ResponseEntity.accepted().body("Upload accepted");
 
         }catch (IllegalArgumentException e){
             return ResponseEntity.badRequest().body(e.getMessage() + "Can not create notes!");
