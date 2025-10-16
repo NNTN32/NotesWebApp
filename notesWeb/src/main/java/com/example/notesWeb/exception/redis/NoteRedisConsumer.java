@@ -17,6 +17,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 @Slf4j
@@ -36,6 +37,9 @@ public class NoteRedisConsumer {
     private static final String gROUP = "notes-group";
     private static final String cONSUMER_nAME = "consumer-2";
 
+    //Thread pool processes requests in parallel
+    private final ExecutorService executorService = Executors.newFixedThreadPool(10);
+
     @PostConstruct
     public void noteConsumer(){
         try{
@@ -46,53 +50,18 @@ public class NoteRedisConsumer {
         }
 
         Executors.newSingleThreadExecutor().submit(() -> {
+            log.info("NoteRedisConsumer stared, listening for new message....");
             while (true){
                 try{
                     //Read message each sec
                     List<MapRecord<String, Object, Object>> recordList = redisTemplate.opsForStream()
                             .read(Consumer.from(gROUP, cONSUMER_nAME),
-                                    StreamReadOptions.empty().count(10).block(Duration.ofSeconds(1)),
+                                    StreamReadOptions.empty().count(100).block(Duration.ofMillis(500)),
                                     StreamOffset.create(sTREAM_kEY, ReadOffset.lastConsumed()));
 
-                    if(recordList != null){
-                        for (MapRecord<String, Object, Object> record : recordList) {
-                            try{
-                                String content = (String) record.getValue().get("content");
-                                String title = (String) record.getValue().get("title");
-                                String username = (String) record.getValue().get("username");
-
-                                log.info("Received create notes request from user: {}", username);
-
-                                NoteRequest noteRequest = new NoteRequest(content, title);
-                                Notes savedNotes = createNoteService.createNote(noteRequest, username);
-
-                                NoteResponse response = new NoteResponse(
-                                        savedNotes.getContent(),
-                                        savedNotes.getTitle(),
-                                        "/notes/" + savedNotes.getId()
-                                );
-
-                                if(messagingTemplate != null){
-                                    messagingTemplate.convertAndSendToUser(username, "/queue/note-result", response);
-
-                                }
-
-                                //Save into Redis Stream above 1 min
-                                String keyResult = "note:result" + savedNotes.getId();
-                                Map<String , String> resultMap = new HashMap<>();
-                                resultMap.put("content", savedNotes.getContent());
-                                resultMap.put("title", savedNotes.getTitle());
-                                resultMap.put("url", "/notes/" + savedNotes.getId());
-
-                                redisTemplate.opsForHash().putAll(keyResult, resultMap);
-                                redisTemplate.expire(keyResult, Duration.ofMinutes(1));
-
-                                //Confirm handle message queue
-                                redisTemplate.opsForStream().acknowledge(sTREAM_kEY, gROUP, record.getId());
-                                log.info("Notes created successfully for user: {}", username);
-                            }catch (Exception e){
-                                log.error("Failed to process create note message: {}", e.getMessage());
-                            }
+                    if(recordList != null && !recordList.isEmpty()){
+                        for(MapRecord<String, Object, Object> record : recordList){
+                            executorService.submit(() -> handleMessageNote(record));
                         }
                     }
                 }catch (Exception e){
@@ -100,5 +69,23 @@ public class NoteRedisConsumer {
                 }
             }
         });
+    }
+
+    private void handleMessageNote(MapRecord<String, Object, Object> recordNote){
+        try{
+            String content = (String) recordNote.getValue().get("content");
+            String title = (String) recordNote.getValue().get("title");
+            String username = (String) recordNote.getValue().get("username");
+
+            NoteRequest noteRequest = new NoteRequest(content, title);
+            log.info("Handle create note for user: {} - {}" , username, title);
+
+            Notes newNotes = createNoteService.createNote(noteRequest, username);
+            log.info("Notes created success: {} - ID: {}", title, newNotes.getId());
+
+            redisTemplate.opsForStream().acknowledge(sTREAM_kEY, gROUP, recordNote.getId());
+        }catch (Exception e){
+            log.error("Error handle message {}: {}", recordNote.getId(), e.getMessage(), e);
+        }
     }
 }
