@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -28,6 +30,7 @@ public class MediaNoteService {
     private final Cloudinary cloudinary;
 
     //Logic handle about upload file on notes like photo, video, audio,...
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public NoteMedia uploadMedia(MediaNoteRequest mediaNoteRequest, UUID postID){
         MultipartFile file = mediaNoteRequest.getFile();
 
@@ -52,17 +55,24 @@ public class MediaNoteService {
 
             //Upload with retry 3 times
             Map<String, Object> uploadResult = uploadRetry(file, 3);
-            String url = uploadResult.get("secure_url").toString();
-            String resourceType = uploadResult.get("resource_type").toString();
+            String url = (String) uploadResult.get("secure_url");
+            String resourceType = ((String) uploadResult.get("resource_type")).toUpperCase();
+            MediaType type = MediaType.RAW;
+
+            try{
+                type = MediaType.valueOf(resourceType);
+            }catch (IllegalArgumentException ex){
+                log.warn("Unrecognized resourceType '{}', defaulting to RAW", resourceType);
+            }
 
             NoteMedia noteMedia = new NoteMedia();
             noteMedia.setUrl(url);
-            noteMedia.setType(MediaType.valueOf(resourceType.toUpperCase()));
+            noteMedia.setType(type);
             noteMedia.setNotes(notes);
 
-            mediaRepo.save(noteMedia);
-            log.info("Uploaded media successfully for note {} at {}", postID, url);
-            return noteMedia;
+            NoteMedia saved = mediaRepo.save(noteMedia);
+            log.info("Uploaded media sucessfully for note {}: {}", postID, url);
+            return saved;
         }catch (Exception e){
             log.error("Failed to upload file '{}' for note {}: {}",
                     file.getOriginalFilename(), postID, e.getMessage(), e);
@@ -77,6 +87,8 @@ public class MediaNoteService {
             throw new IllegalArgumentException("Can't detect file type!");
         }
 
+        contentType = contentType.toUpperCase();
+
         if(!contentType.startsWith("IMAGE/") && !contentType.startsWith("VIDEO") && !contentType.startsWith("AUDIO")){
             throw new IllegalArgumentException("Invalid file type! Only image, video or audio are allowed!");
         }
@@ -85,20 +97,23 @@ public class MediaNoteService {
     //Situation if uploaded file error into Cloudinary
     private Map<String, Object> uploadRetry(MultipartFile file, int maxRetries) throws Exception{
         int attempt = 0;
-        IOException lastException = null;
+        Exception lastException = null;
+
+        //Read all file into byte[]
+        byte[] fileBytes = file.getBytes();
 
         while (attempt < maxRetries){
             attempt++;
-            try(InputStream inputStream = file.getInputStream()){
+            try{
                 Map<String, Object> result = cloudinary.uploader().upload(
-                        inputStream,
+                        fileBytes,
                         ObjectUtils.asMap(
                                 "folder", "notes_uploads/",
                                 "resource_type", "auto"
                         )
                 );
                 return result;
-            }catch (IOException e){
+            }catch (Exception e){
                 lastException = e;
                 log.warn("Upload attempt {}/{} failed for '{}': {}",
                         attempt, maxRetries, file.getOriginalFilename(), e.getMessage());
