@@ -3,6 +3,7 @@ package com.example.notesWeb.controller.Notes;
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
+import com.example.notesWeb.exception.redis.NoteRedisProducer;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
@@ -13,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.parameters.P;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,6 +36,9 @@ public class NoteController {
 
     @Autowired
     private TaskNoteService taskNoteService;
+
+    @Autowired
+    private NoteRedisProducer noteRedisProducer;
 
     //API Handle Create Notes
     @PostMapping("/creates")
@@ -60,9 +65,10 @@ public class NoteController {
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
-            //Calling logic handle create Notes from service class
-            Notes newNote = createNoteService.createNote(noteRequest, username);
-            return ResponseEntity.ok(newNote);
+            //Send message queue into Redis Stream
+            noteRedisProducer.sendNoteRequest(noteRequest, username);
+            return ResponseEntity.status(HttpStatus.ACCEPTED)
+                    .body("Note creation request queued success for user: " + username);
 
         }catch (IllegalArgumentException e){
             return ResponseEntity.badRequest().body(e.getMessage() + "Can not create notes!");
