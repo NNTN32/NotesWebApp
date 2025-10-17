@@ -7,7 +7,7 @@ import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.catalina.util.RateLimiter;
+import com.google.common.util.concurrent.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -42,7 +43,8 @@ public class NoteRedisConsumer {
     //Thread pool processes requests in parallel
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
-    private final Semaphore rateLimit = new Semaphore(20);
+    private final RateLimiter limitRequest = RateLimiter.create(50.0);
+    private final Semaphore rateLimit = new Semaphore(50);
 
     @PostConstruct
     public void noteConsumer(){
@@ -65,11 +67,18 @@ public class NoteRedisConsumer {
 
                     if (recordList == null || recordList.isEmpty()) continue;
 
-                    log.info("Fetched {} messages from Redis", recordList.size());
+                    log.info("Received {} messages from Redis", recordList.size());
 
                     if(recordList != null && !recordList.isEmpty()){
                         for(MapRecord<String, Object, Object> record : recordList){
+                            if(!limitRequest.tryAcquire(500, TimeUnit.MICROSECONDS)) {
+                                log.warn("Too many request! Delaying message: {}", record.getId());
+                                Thread.sleep(200);
+                                continue;
+                            }
+
                             rateLimit.acquire();
+
                             executorService.submit(() -> {
                                 try {
                                     handleMessageNote(record);
