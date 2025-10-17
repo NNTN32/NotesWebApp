@@ -4,8 +4,10 @@ import com.example.notesWeb.dtos.AuthRequest;
 import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.model.Status;
 import com.example.notesWeb.service.AuthService;
+import com.google.common.util.concurrent.RateLimiter;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AuthRedisConsumer {
@@ -40,12 +43,15 @@ public class AuthRedisConsumer {
             new ThreadPoolExecutor.CallerRunsPolicy()  //If queue is full then run on main thread
     );
 
+    private final RateLimiter limitRequestLogin = RateLimiter.create(50.0);
+
     //Semaphore for handle limit speed request
-    private final Semaphore rateLimiter = new Semaphore(20); //Commit maximize 20 request/sec
+    private final Semaphore rateLimiter = new Semaphore(50); //Commit maximize 50 request/sec
 
     private static final String STREAM_KEY = "auth:login:stream";
     private static final String GROUP = "auth-group";
     private static final String CONSUMER_NAME = "consumer-1";
+
 
     //Logic handle read, caching redis
     @PostConstruct
@@ -53,12 +59,17 @@ public class AuthRedisConsumer {
         try{
             //Create stream group can redis request caching
             redisTemplate.opsForStream().createGroup(STREAM_KEY, ReadOffset.latest(), GROUP);
-        }catch (Exception ignored){}
+            log.info("Redis stream group '{}' created successfully", GROUP);
+        }catch (Exception e){
+            log.info("Redis stream group '{}' already exists", GROUP);
+        }
 
         //Create thread of stream can read request message from client
         Executors.newSingleThreadExecutor().submit(() -> {
+            log.info("AuthRedisConsumer started, waiting for login requests...");
             while (true){
                 try{
+                    limitRequestLogin.acquire();
                     List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream()
                             .read(Consumer.from(GROUP, CONSUMER_NAME),
                                     //Read about 1s each 10 times request message
@@ -76,6 +87,24 @@ public class AuthRedisConsumer {
                 }
             }
         });
+    }
+
+    //Method handle safe each record
+    private void proccessRecordSafely(MapRecord<String, Object, Object> record){
+        boolean acquired = false;
+        try{
+            //Only confirm max 50 request parallel processing
+            if (!rateLimiter.tryAcquire(5, TimeUnit.SECONDS)){
+                log.warn("Too many concurrent login requests. Delaying record {}", record.getId());
+                return;
+            }
+            acquired = true;
+            handleAuthRecord(record);
+        }catch (Exception e){
+            handleError(record, e);
+        }finally {
+            if(acquired) rateLimiter.release();
+        }
     }
 
     //Logic handle message request Login from client
