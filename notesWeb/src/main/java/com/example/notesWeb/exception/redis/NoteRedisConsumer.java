@@ -7,6 +7,7 @@ import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.catalina.util.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -19,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 @Slf4j
 @Component
@@ -40,6 +42,8 @@ public class NoteRedisConsumer {
     //Thread pool processes requests in parallel
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
 
+    private final Semaphore rateLimit = new Semaphore(20);
+
     @PostConstruct
     public void noteConsumer(){
         try{
@@ -59,13 +63,28 @@ public class NoteRedisConsumer {
                                     StreamReadOptions.empty().count(100).block(Duration.ofMillis(500)),
                                     StreamOffset.create(sTREAM_kEY, ReadOffset.lastConsumed()));
 
+                    if (recordList == null || recordList.isEmpty()) continue;
+
+                    log.info("Fetched {} messages from Redis", recordList.size());
+
                     if(recordList != null && !recordList.isEmpty()){
                         for(MapRecord<String, Object, Object> record : recordList){
-                            executorService.submit(() -> handleMessageNote(record));
-                        }
+                            rateLimit.acquire();
+                            executorService.submit(() -> {
+                                try {
+                                    handleMessageNote(record);
+                                } catch (Exception e) {
+                                    log.error("Error processing message: {}", e.getMessage(), e);
+                                } finally {
+                                    rateLimit.release();
+                                }
+                            });                        }
                     }
                 }catch (Exception e){
                     log.error("Redis consumer loop error: {}", e.getMessage());
+                    try{
+                        Thread.sleep(500);
+                    }catch (InterruptedException ignored){}
                 }
             }
         });
