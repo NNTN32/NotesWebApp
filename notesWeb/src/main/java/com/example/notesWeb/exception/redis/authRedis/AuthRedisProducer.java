@@ -1,7 +1,6 @@
-package com.example.notesWeb.exception;
+package com.example.notesWeb.exception.redis.authRedis;
 
 import com.example.notesWeb.dtos.AuthRequest;
-import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.StreamRecords;

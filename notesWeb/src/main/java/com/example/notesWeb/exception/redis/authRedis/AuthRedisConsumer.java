@@ -1,4 +1,4 @@
-package com.example.notesWeb.exception;
+package com.example.notesWeb.exception.redis.authRedis;
 
 import com.example.notesWeb.dtos.AuthRequest;
 import com.example.notesWeb.dtos.AuthResponse;
@@ -50,12 +50,12 @@ public class AuthRedisConsumer {
 
     private static final String STREAM_KEY = "auth:login:stream";
     private static final String GROUP = "auth-group";
-    private static final String CONSUMER_NAME = "consumer-1";
+//    private static final String CONSUMER_NAME = "consumer-1";
 
 
     //Logic handle read, caching redis
-    @PostConstruct
-    public void startConsumer(){
+//    @PostConstruct
+    public void startConsumer(String consumerAuth){
         try{
             //Create stream group can redis request caching
             redisTemplate.opsForStream().createGroup(STREAM_KEY, ReadOffset.latest(), GROUP);
@@ -66,12 +66,12 @@ public class AuthRedisConsumer {
 
         //Create thread of stream can read request message from client
         Executors.newSingleThreadExecutor().submit(() -> {
-            log.info("AuthRedisConsumer started, waiting for login requests...");
+            log.info("AuthRedisConsumer started, waiting for login requests...", consumerAuth);
             while (true){
                 try{
                     limitRequestLogin.acquire();
                     List<MapRecord<String, Object, Object>> records = redisTemplate.opsForStream()
-                            .read(Consumer.from(GROUP, CONSUMER_NAME),
+                            .read(Consumer.from(GROUP, consumerAuth),
                                     //Read about 1s each 10 times request message
                                     StreamReadOptions.empty().count(10).block(Duration.ofSeconds(1)),
                                     //Read the last message caching not yet handle request

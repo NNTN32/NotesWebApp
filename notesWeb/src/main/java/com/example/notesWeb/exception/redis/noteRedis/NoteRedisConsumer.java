@@ -1,7 +1,6 @@
-package com.example.notesWeb.exception.redis;
+package com.example.notesWeb.exception.redis.noteRedis;
 
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
-import com.example.notesWeb.dtos.NoteDto.NoteResponse;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import jakarta.annotation.PostConstruct;
@@ -15,9 +14,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -38,7 +35,7 @@ public class NoteRedisConsumer {
 
     private static final String sTREAM_kEY= "notes:create:stream";
     private static final String gROUP = "notes-group";
-    private static final String cONSUMER_nAME = "consumer-2";
+//    private static final String cONSUMER_nAME = "consumer-2";
 
     //Thread pool processes requests in parallel
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -46,8 +43,8 @@ public class NoteRedisConsumer {
     private final RateLimiter limitRequest = RateLimiter.create(50.0);
     private final Semaphore rateLimit = new Semaphore(50);
 
-    @PostConstruct
-    public void noteConsumer(){
+//    @PostConstruct
+    public void noteConsumer(String consumerNote){
         try{
             redisTemplate.opsForStream().createGroup(sTREAM_kEY, ReadOffset.latest(), gROUP);
             log.info("Created Redis Stream Group: {}", gROUP);
@@ -56,12 +53,12 @@ public class NoteRedisConsumer {
         }
 
         Executors.newSingleThreadExecutor().submit(() -> {
-            log.info("NoteRedisConsumer stared, listening for new message....");
+            log.info("NoteRedisConsumer stared, listening for new message....", consumerNote);
             while (true){
                 try{
                     //Read message each sec
                     List<MapRecord<String, Object, Object>> recordList = redisTemplate.opsForStream()
-                            .read(Consumer.from(gROUP, cONSUMER_nAME),
+                            .read(Consumer.from(gROUP, consumerNote),
                                     StreamReadOptions.empty().count(100).block(Duration.ofMillis(500)),
                                     StreamOffset.create(sTREAM_kEY, ReadOffset.lastConsumed()));
 
@@ -100,6 +97,10 @@ public class NoteRedisConsumer {
     }
 
     private void handleMessageNote(MapRecord<String, Object, Object> recordNote){
+        if (!rateLimit.tryAcquire()) {
+            log.warn("Rate limited note create {}", recordNote.getId());
+            return;
+        }
         try{
             String content = (String) recordNote.getValue().get("content");
             String title = (String) recordNote.getValue().get("title");

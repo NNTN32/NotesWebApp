@@ -1,4 +1,4 @@
-package com.example.notesWeb.exception.redis;
+package com.example.notesWeb.exception.redis.noteRedis;
 
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import lombok.RequiredArgsConstructor;
