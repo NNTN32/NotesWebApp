@@ -1,8 +1,7 @@
 package com.example.notesWeb.controller;
 
 import com.example.notesWeb.dtos.AuthRequest;
-import com.example.notesWeb.dtos.AuthResponse;
-import com.example.notesWeb.exception.AuthRedisProducer;
+import com.example.notesWeb.exception.redis.authRedis.AuthRedisProducer;
 import com.example.notesWeb.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;

@@ -43,9 +43,9 @@ public class MediaRedisConsumer {
 
     private static final String key_STREAM = "media:create:stream";
     private static final String media_GROUP = "media-group";
-    private static final String media_CONSUMER = "consumer-3";
+//    private static final String media_CONSUMER = "consumer-3";
 
-    @PostConstruct
+//    @PostConstruct
     public void initGroup(){
         try{
             redisTemplate.opsForStream().createGroup(key_STREAM, ReadOffset.from("0-0"), media_GROUP);
@@ -54,10 +54,15 @@ public class MediaRedisConsumer {
         }
     }
 
+    //@Scheduled function has no parameters
     @Scheduled(fixedDelay = 500)
-    public void mediaConsumer() {
+    public void scheduledMediaConsumer() {
+        mediaConsumer("consumer-3");
+    }
+
+    public void mediaConsumer(String consumerMedia) {
         List<MapRecord<String, Object, Object>> mediaRecords = redisTemplate.opsForStream().read(
-                Consumer.from(media_GROUP, media_CONSUMER),
+                Consumer.from(media_GROUP, consumerMedia),
                 StreamReadOptions.empty().count(30).block(Duration.ofSeconds(1)),
                 StreamOffset.create(key_STREAM, ReadOffset.lastConsumed())
         );
