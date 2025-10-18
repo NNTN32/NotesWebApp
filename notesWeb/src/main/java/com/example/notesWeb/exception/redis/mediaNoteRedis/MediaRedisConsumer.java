@@ -5,6 +5,7 @@ import com.example.notesWeb.service.takeNotes.MediaNoteService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import com.google.common.util.concurrent.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -22,6 +23,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -34,6 +37,9 @@ public class MediaRedisConsumer {
     private MediaNoteService mediaNoteService;
 
     private final ExecutorService executorService = Executors.newFixedThreadPool(8);
+
+    private final RateLimiter limitRequestMedia = RateLimiter.create(50.0);
+    private final Semaphore rateLimitMedia = new Semaphore(50);
 
     private static final String key_STREAM = "media:create:stream";
     private static final String media_GROUP = "media-group";
@@ -59,7 +65,29 @@ public class MediaRedisConsumer {
         if (mediaRecords == null || mediaRecords.isEmpty()) return;
 
         for (MapRecord<String, Object, Object> record : mediaRecords){
-            executorService.submit(() -> handleMessageMedia(record));
+            try{
+                if (!limitRequestMedia.tryAcquire(500, TimeUnit.MILLISECONDS)){
+                    log.warn("Too many request! Delyaing message: {}", record.getId());
+                    Thread.sleep(200);
+                    continue;
+                }
+                rateLimitMedia.acquire();
+
+                executorService.submit(() -> {
+                    try {
+                        handleMessageMedia(record);
+                    } catch (Exception e) {
+                        log.error("Error processing message: {}", e.getMessage(), e);
+                    }finally {
+                        rateLimitMedia.release();
+                    }
+                });
+            }catch (Exception e){
+                log.error("Redis consumer loop error: {}", e.getMessage());
+                try{
+                    Thread.sleep(500);
+                }catch (InterruptedException ignored){}
+            }
         }
     }
 
