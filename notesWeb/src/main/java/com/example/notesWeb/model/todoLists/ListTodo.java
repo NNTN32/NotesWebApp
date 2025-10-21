@@ -31,6 +31,9 @@ public class ListTodo {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
+    @Column
+    private LocalDateTime deadlineTime;
+
     @Enumerated(EnumType.STRING)
     private State state;
 
