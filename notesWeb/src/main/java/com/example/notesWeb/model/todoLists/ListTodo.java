@@ -31,8 +31,12 @@ public class ListTodo {
     @UpdateTimestamp
     private LocalDateTime updatedAt;
 
-    @Column
     private LocalDateTime deadlineTime;
+
+    private Integer reminderTime;
+
+    @Column
+    private Boolean reminded = false;
 
     @Enumerated(EnumType.STRING)
     private State state;
