@@ -14,8 +14,9 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.text.DateFormat;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.UUID;
 
 @RestController
@@ -32,7 +33,7 @@ public class ReminderController {
             @RequestHeader("Authorization") String authorHeader,
             @PathVariable UUID idListTodo,
             @RequestParam String time,
-            @RequestParam Integer reminder
+            @RequestParam String reminder
     ) {
         try {
             if (authorHeader == null || !authorHeader.startsWith("Bearer ")) {
@@ -53,13 +54,65 @@ public class ReminderController {
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
+            //Convert Duration
+            Duration duration = Duration.parse(reminder);
+
             // Callback logic service
-            ListTodo updated = reminderService.setDeadlineByPresent(idListTodo, time, reminder, username);
+            ListTodo updated = reminderService.setDeadlineByPresent(idListTodo, time, duration, username);
 
             return ResponseEntity.ok(updated);
 
         } catch (UsernameNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    @PutMapping("/update-time/{idListTodo}")
+    public ResponseEntity<?> updatedDeadlineReminder (
+            @RequestHeader("Authorization") String authorHeader,
+            @PathVariable UUID idListTodo,
+            @RequestParam String time,
+            @RequestParam String reminder
+    ) {
+        try {
+            if (authorHeader == null || !authorHeader.startsWith("Bearer ")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("Authorization header is missing or invalid.");
+            }
+
+            String token = authorHeader.substring(7);
+
+            if (jwtProvider.isTokenExpired(token)) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body("Token expired. Please login again.");
+            }
+
+            String username = jwtProvider.getUserFromJwt(token);
+            User user = userRepo.findByUsername(username)
+                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
+
+            LocalDateTime newDeadline;
+            try {
+                if (time.length() == 5) { // type HH:mm
+                    LocalTime localTime = LocalTime.parse(time);
+                    newDeadline = LocalDateTime.of(LocalDate.now(), localTime);
+                } else {
+                    newDeadline = LocalDateTime.parse(time);
+                }
+            } catch (DateTimeParseException e) {
+                return ResponseEntity.badRequest().body("Invalid datetime format. Use 'yyyy-MM-ddTHH:mm:ss' or 'HH:mm'");
+            }
+
+            Duration newReminder = Duration.parse(reminder);
+
+            ListTodo updated = reminderService.updatedTime(idListTodo, newDeadline, newReminder, username);
+            return ResponseEntity.ok(updated);
+        }catch (DateTimeException e) {
+            return ResponseEntity.badRequest().body("Invalid datetime or duration format");
+        }catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }

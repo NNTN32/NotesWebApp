@@ -14,6 +14,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.Map;
@@ -51,13 +54,13 @@ public class SchedulerService {
             return;
         }
 
+        Instant triggerInstant = todo.getDeadlineTime()
+                .minus(todo.getReminderTime())
+                .atZone(ZoneId.systemDefault())
+                .toInstant();
+
         //trigger timing
-        Date triggerDate = Date.from(
-                todo.getDeadlineTime()
-                        .minusMinutes(todo.getReminderTime())
-                        .atZone(ZoneId.systemDefault())
-                        .toInstant()
-        );
+        Date triggerDate = Date.from(triggerInstant);
 
         //Situation if trigger have already been past -> sent now (or cancel request)
         Runnable task = () -> {
@@ -70,10 +73,10 @@ public class SchedulerService {
                 }
 
                 //If it already reminded then next
-                if (Boolean.TRUE.equals(fresh.getReminded())){
-                    log.info("Already reminded: {}", fresh.getIdList());
-                    return;
-                }
+//                if (Boolean.TRUE.equals(fresh.getReminded())){
+//                    log.info("Already reminded: {}", fresh.getIdList());
+//                    return;
+//                }
 
                 //Send websocket realtime to user
                 String username = fresh.getUser().getUsername();
@@ -115,4 +118,21 @@ public class SchedulerService {
         return false;
     }
 
+    //Method setup new time for to do
+    public void updateReminderTime (UUID todoID, LocalDateTime newDeadline, Duration newReminder) {
+        ListTodo todo = todoRepo.findByIdWithUser(todoID).orElse(null);
+        if (todo == null) {
+            log.warn("Todo {} not found for update", todoID);
+            return;
+        }
+
+        //Update new data
+        todo.setDeadlineTime(newDeadline);
+        todo.setReminderTime(newReminder);
+        todo.setReminded(false);
+        todoRepo.save(todo);
+
+        //Reschedule
+        scheduleReminder(todo);
+    }
 }

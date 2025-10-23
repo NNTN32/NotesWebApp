@@ -12,6 +12,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -26,7 +27,7 @@ public class ReminderService {
     private final UserRepo userRepo;
 
     // Set deadline theo giờ cụ thể (HH:mm) + username từ token
-    public ListTodo setDeadlineByPresent(UUID idListTodo, String hhmm, Integer reminder, String username) {
+    public ListTodo setDeadlineByPresent(UUID idListTodo, String hhmm, Duration reminder, String username) {
         String[] parts = hhmm.split(":");
         int hh = Integer.parseInt(parts[0]);
         int mm = Integer.parseInt(parts[1]);
@@ -59,5 +60,20 @@ public class ReminderService {
 
         log.info("Set reminder for '{}' at {} by user '{}'", todo.getHeading(), dt, username);
         return saved;
+    }
+
+    //Logic handle update deadline vs reminder time for schedule
+    public ListTodo updatedTime (UUID idListTodo, LocalDateTime newDeadline, Duration newReminder, String username) {
+        ListTodo todo = todoRepo.findByIdWithUser(idListTodo)
+                .orElseThrow(() -> new RuntimeException("Todo not found with id: " + idListTodo));
+
+        if (!todo.getUser().getUsername().equals(username)) {
+            throw new SecurityException("Unauthorized: This todo does not belong to the current user.");
+        }
+
+        schedulerService.updateReminderTime(idListTodo, newDeadline, newReminder);
+        log.info("Updated deadline & reminder for '{}' by user '{}'", todo.getHeading(), username);
+
+        return todoRepo.findByIdWithUser(idListTodo).orElseThrow();
     }
 }
