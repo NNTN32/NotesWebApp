@@ -7,6 +7,7 @@ import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -33,7 +34,7 @@ public class ListTodo {
 
     private LocalDateTime deadlineTime;
 
-    private Integer reminderTime;
+    private Duration reminderTime;
 
     @Column
     private Boolean reminded = false;
