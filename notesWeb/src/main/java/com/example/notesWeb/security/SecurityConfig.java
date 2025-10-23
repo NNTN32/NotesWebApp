@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/todo/delete/{idList}",
                                 "/todo/listUpdate/{idList}",
                                 "/reminder/set-time/{idListTodo}",
+                                "/reminder/update-time/{idListTodo}",
                                 "/ws/**"
 //                                "/reminder/**"
                         ).permitAll()
