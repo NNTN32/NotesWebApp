@@ -8,6 +8,7 @@ import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
+import com.example.notesWeb.service.takeNotes.TaskNoteService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
@@ -28,6 +29,7 @@ import java.util.UUID;
 @Component
 @RequiredArgsConstructor
 public class kafkaNoteConsumer {
+    private final TaskNoteService taskNoteService;
     private final NotesRepo notesRepo;
     private final UserRepo userRepo;
     private final ObjectMapper objectMapper;
@@ -37,48 +39,23 @@ public class kafkaNoteConsumer {
     @KafkaListener(topics = "note-updates", groupId = "note-update-group")
     public void consume(NoteUpdateEvent noteUpdateEvent) {
         try{
-            UUID noteID = noteUpdateEvent.getNoteID();
-            UUID userID = noteUpdateEvent.getUserID();
-            NoteRequest noteRequest = noteUpdateEvent.getNoteRequest();
+            Notes updateNote = taskNoteService.updateNote(
+                    noteUpdateEvent.getNoteRequest(),
+                    noteUpdateEvent.getNoteID(),
+                    noteUpdateEvent.getUserID()
+            );
 
-            User user = userRepo.findById(userID)
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
-
-            Notes notes = notesRepo.findNote(noteID)
-                    .orElseThrow(() -> new IllegalArgumentException("Note not found!"));
-
-            if (!notes.getUser().getId().equals(user.getId())) {
-                throw new AccessDeniedException("Unauthorized to update note!");
-            }
-
-            if (noteRequest.getTitle() != null && !noteRequest.getTitle().isBlank()) {
-                notes.setTitle(noteRequest.getTitle());
-            }
-
-            if (noteRequest.getContent() != null && !noteRequest.getContent().isBlank()) {
-                notes.setContent(noteRequest.getContent());
-            }
-
-            notes.setUpdatedAt(LocalDateTime.now());
-            notesRepo.save(notes);
-
-            //Updated cache right after saved notes
-//            String redisKey = "note:" + noteID;
-//            redisTemplate.opsForValue().set(redisKey, notes);
-//
-//            log.info("Note updated & cached sucessfully: {}", noteID);
-
-            NoteCache cacheDTO = NoteCache.fromEntity(notes);
+            NoteCache cacheDTO = NoteCache.fromEntity(updateNote);
             try {
                 String noteJson = objectMapper.writeValueAsString(cacheDTO);
-                String redisKey = "note:" + noteID;
+                String redisKey = "note:" + updateNote.getId();
 
                 redisTemplate.opsForValue().set(redisKey, noteJson);
-                log.info("Note updated & cached successfully: {}", noteID);
+                log.info("Note updated & cached successfully: {}",updateNote.getId());
             } catch (JsonProcessingException e) {
-                log.error("Failed to serialize note {} for Redis: {}", noteID, e.getMessage());
+                log.error("Failed to serialize note {} for Redis: {}", updateNote.getId(), e.getMessage());
             } catch (DataAccessException redisEx) {
-                log.warn("Redis unavailable, skipping cache update for note {}. Error: {}", noteID, redisEx.getMessage());
+                log.warn("Redis unavailable, skipping cache update for note {}. Error: {}", updateNote.getId(), redisEx.getMessage());
             }
         } catch (Exception e) {
             log.error("Failed to process note update: {}", e.getMessage());
