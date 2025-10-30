@@ -1,8 +1,10 @@
 package com.example.notesWeb.controller.Notes;
 
+import com.example.notesWeb.exception.kafka.kafkaNoteProducer;
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
+import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
 import com.example.notesWeb.exception.redis.noteRedis.NoteRedisProducer;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
@@ -22,6 +24,9 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/notes")
 public class NoteController {
+    @Autowired
+    private kafkaNoteProducer kafkaNoteProducer;
+
     @Autowired
     private CreateNoteService createNoteService;
 
@@ -138,8 +143,11 @@ public class NoteController {
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
             UUID userID = user.getId();
 
-            Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
-            return ResponseEntity.ok(updated);
+            //Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
+            NoteUpdateEvent event = new NoteUpdateEvent(noteID, userID, noteRequest);
+            //return ResponseEntity.ok(updated);
+            kafkaNoteProducer.sendNoteUpdate(event);
+            return ResponseEntity.accepted().body("Updated request submitted to Kafka");
 
         }catch (AccessDeniedException e){
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage() + "User doesn't have authority to update Notes!");
