@@ -19,11 +19,9 @@ public class NoteMedia {
     private String url;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
     private MediaType type;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "noteId", nullable = false)
-    @JsonBackReference
     private Notes notes;
 }
