@@ -22,11 +22,10 @@ public class Notes {
     @GeneratedValue
     private UUID id;
 
-    @Column(length = 255, nullable = false)
+    @Column(length = 100000, nullable = false)
     private String title;
 
-    @Lob
-    @Column(columnDefinition = "TEXT")
+    @Column(length = 100000)
     private String content;
 
 
