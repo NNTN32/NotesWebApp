@@ -1,5 +1,6 @@
 package com.example.notesWeb.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -16,7 +17,10 @@ public class UserInfo {
     private UUID id;
 
     private String avatar;
-    private String phoneNumb;
-    private String address;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonBackReference
+    private User user;
 
 }
