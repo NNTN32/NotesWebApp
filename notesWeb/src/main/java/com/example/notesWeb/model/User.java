@@ -32,9 +32,8 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Status status;
 
-    // Tự động lưu UserInfo khi lưu User
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "userInfo_id", referencedColumnName = "id")
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private UserInfo userInfo;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
