@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
@@ -33,6 +34,7 @@ public class kafkaNoteConsumer {
     private final NotesRepo notesRepo;
     private final UserRepo userRepo;
     private final ObjectMapper objectMapper;
+    private final SimpMessagingTemplate messagingTemplate;
     @Autowired
     private RedisTemplate<String, String> redisTemplate;
 
@@ -52,6 +54,11 @@ public class kafkaNoteConsumer {
 
                 redisTemplate.opsForValue().set(redisKey, noteJson);
                 log.info("Note updated & cached successfully: {}",updateNote.getId());
+
+                //Send realtime through STOMP after updated notes
+                User user = userRepo.findById(noteUpdateEvent.getUserID())
+                        .orElseThrow(() -> new RuntimeException("User not found!"));
+                messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/updates", cacheDTO);
             } catch (JsonProcessingException e) {
                 log.error("Failed to serialize note {} for Redis: {}", updateNote.getId(), e.getMessage());
             } catch (DataAccessException redisEx) {
