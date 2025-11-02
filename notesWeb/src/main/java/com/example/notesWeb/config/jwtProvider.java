@@ -1,5 +1,6 @@
 package com.example.notesWeb.config;
 
+import com.example.notesWeb.model.Role;
 import com.example.notesWeb.model.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -39,6 +40,22 @@ public class jwtProvider {
                 .compact();
     }
 
+    //Refresh token
+    public String refreshToken(String oldToken) {
+        if(!validateToken(oldToken)) {
+            throw new IllegalArgumentException("Cannot refresh invalid or expired token");
+        }
+
+        String userName = getUserFromJwt(oldToken);
+        String role = getRoleFromJwt(oldToken);
+
+        User user = new User();
+        user.setUsername(userName);
+        user.setRole(Role.valueOf(role));
+
+        return generateToken(user);
+    }
+
     //Claim token type "String"
     public Claims extractAllClaims(String token){
         try{
@@ -61,6 +78,10 @@ public class jwtProvider {
     public String getUserFromJwt(String token){
         return extractClaim(token, Claims::getSubject);
     }
+
+    //Get object "role" to jwt
+    public String getRoleFromJwt(String token) { return extractClaim(token, claims -> claims.get("Role:", String.class));}
+
 
     //Check time token validate
     public boolean isTokenExpired(String token){
