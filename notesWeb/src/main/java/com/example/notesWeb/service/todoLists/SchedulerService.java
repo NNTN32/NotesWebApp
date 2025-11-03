@@ -90,7 +90,7 @@ public class SchedulerService {
                         new ReminderMessage(
                                 fresh.getHeading(), "Reminder: " + fresh.getHeading() + "is due at " + fresh.getDeadlineTime()
                         ));
-                log.info("Sent reminder for todo {} to user {}", fresh.getIdList(), username);
+                log.info("Sent reminder for todo {} to user {}", fresh.getHeading(), username);
 
                 //Mark as reminded
                 fresh.setReminded(true);
