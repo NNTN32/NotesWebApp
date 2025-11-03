@@ -58,7 +58,7 @@ public class kafkaNoteConsumer {
                 //Send realtime through STOMP after updated notes
                 User user = userRepo.findById(noteUpdateEvent.getUserID())
                         .orElseThrow(() -> new RuntimeException("User not found!"));
-                messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/updates", cacheDTO);
+                messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/note-updates", cacheDTO);
             } catch (JsonProcessingException e) {
                 log.error("Failed to serialize note {} for Redis: {}", updateNote.getId(), e.getMessage());
             } catch (DataAccessException redisEx) {
