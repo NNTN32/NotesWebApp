@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.google.common.util.concurrent.RateLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -88,6 +89,24 @@ public class NoteRedisConsumer {
                     }
                 }catch (Exception e){
                     log.error("Redis consumer loop error: {}", e.getMessage());
+
+                    if (e.getMessage() != null && e.getMessage().contains("destroyed")) {
+                        log.warn("Redis connection was destroyed. Attempting to reinitialize RedisTemplat....");
+                        try{
+                            Thread.sleep(3000);
+                        }catch (InterruptedException ignored){}
+                        try {
+                            LettuceConnectionFactory factory = (LettuceConnectionFactory) redisTemplate.getConnectionFactory();
+                            if (factory != null && !factory.isRunning()) {
+                                factory.resetConnection();
+                                factory.start();
+                                log.info("Redis connection reinitialized successfully");
+                            }
+                        }catch (Exception ex) {
+                            log.error("Failed to reinitialize Redis connection: {}", ex.getMessage());
+                        }
+                    }
+
                     try{
                         Thread.sleep(500);
                     }catch (InterruptedException ignored){}
