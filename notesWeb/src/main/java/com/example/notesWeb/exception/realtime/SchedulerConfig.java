@@ -12,6 +12,7 @@ public class SchedulerConfig {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(10);
         scheduler.setThreadNamePrefix("ReminderScheduler-");
+        scheduler.setRemoveOnCancelPolicy(true); // help avoid memory leak when cancel reminder
         scheduler.initialize();
         return scheduler;
     }

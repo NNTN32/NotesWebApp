@@ -81,20 +81,28 @@ public class SchedulerService {
                 //Send websocket realtime to user
                 String username = fresh.getUser().getUsername();
 
+
                 ReminderMessage message = new ReminderMessage(
                         fresh.getHeading(),
                         "Reminder: " + fresh.getHeading() + "is due at " + fresh.getDeadlineTime()
                 );
 
-                messagingTemplate.convertAndSendToUser(username, "/queue/reminder",
-                        new ReminderMessage(
-                                fresh.getHeading(), "Reminder: " + fresh.getHeading() + "is due at " + fresh.getDeadlineTime()
-                        ));
-                log.info("Sent reminder for todo {} to user {}", fresh.getHeading(), username);
+                if (messagingTemplate == null) {
+                    log.warn("MessagingTemplat not ready, skip sending reminder for {}", username);
+                    return;
+                } else if (messagingTemplate != null) {
+                    messagingTemplate.convertAndSendToUser(
+                            username,
+                            "/queue/reminder",
+                            new ReminderMessage(
+                                    fresh.getHeading(), "Reminder: " + fresh.getHeading() + "is due at " + fresh.getDeadlineTime()
+                            ));
+                    log.info("Sent reminder for todo {} to user {}", fresh.getHeading(), username);
 
-                //Mark as reminded
-                fresh.setReminded(true);
-                todoRepo.save(fresh);
+                    //Mark as reminded
+                    fresh.setReminded(true);
+                    todoRepo.save(fresh);
+                }
 
             } catch (Exception e) {
                 log.error("Error during reminder task for todo " + todo.getIdList(), e);
