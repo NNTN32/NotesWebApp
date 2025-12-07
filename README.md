@@ -1,7 +1,7 @@
 # 📝 NotesWebApp – Backend (Spring Boot)
 
-Backend của ứng dụng Notes Web App, cung cấp API cho hệ thống quản lý ghi chú cá nhân.  
-Hệ thống được xây dựng theo kiến trúc RESTful, đảm bảo bảo mật, dễ mở rộng và phù hợp cho môi trường sản phẩm thực tế.
+The backend service of the Notes Web App, providing a secure and scalable RESTful API for managing personal notes.
+This project is designed with production-oriented architecture, focusing on modularity, maintainability, and real-world problem-solving.
 
 ---
 
@@ -32,53 +32,55 @@ ReactJS Frontend:
 
 ---
 
-## 🧠 Những bài toán thực tế Backend đã xử lý
+## 🧠 Real-World Problems Addressed by Backend
 
 ### 🔐 **1. Authentication & Authorization (JWT)**
-- Xây dựng luồng đăng ký – đăng nhập riêng bằng Spring Security.
-- Mã hóa mật khẩu với **BCrypt**.
-- Sinh & xác thực **JWT Token** để bảo vệ API.
-- Tạo Security Filter để xử lý token trước khi truy cập vào controller.
-- Tối ưu, phân chia lượng request thông qua Redis, Loadbalancer.
-- Cân bằng chịu tải hệ thống thông qua Kafka.
+	•	Implemented fully custom register & login flows with Spring Security.
+	•	Encrypted passwords using BCrypt.
+	•	Generated & validated JWT tokens for secure API access.
+	•	Built a custom Security Filter to process tokens before controller access.
+	•	Optimized request distribution via Redis and Load Balancer.
+	•	Improved system scalability by integrating Kafka for asynchronous load handling.
 
-### 📌 **2. CRUD ghi chú (Notes Management)**
-- Tạo / sửa / xoá / lấy ghi chú theo user.
-- Tự động gắn **CreatedAt – UpdatedAt**.
-- Response standard: status + message + timestamp.
+### 📌 **2. Notes Management (CRUD Operations)**
+	•	Create / update / delete / fetch notes per user.
+	•	Automatic CreatedAt & UpdatedAt timestamps.
+	•	Standardized API responses for consistency (status + message + timestamp).
 
-### 🗂️ **3. Mapping & Validation API**
-- Validate input: rỗng, định dạng email, ký tự tối thiểu…
-- Dùng **DTO** để tách biệt layer, tránh expose toàn bộ entity.
-- Sử dụng **ModelMapper** để map giữa DTO ↔ Entity.
+### 🗂️ **3. DTO Mapping & Input Validation**
+	•	Applied strict validation: non-empty fields, email format, min/max length.
+	•	Used DTOs to separate API models from database entities.
+	•	Utilized ModelMapper for efficient mapping between DTO ↔ Entity.
 
-### ⚠️ **4. Exception Handling theo chuẩn hệ thống lớn**
-- Tạo `GlobalExceptionHandler` để xử lý:
-  - Invalid input
-  - Unauthorized
-  - Not Found
-  - Duplicate email
-- Format lỗi thống nhất cho FE dễ xử lý.
+### ⚠️ **4. Centralized Exception Handling**
+- Created a GlobalExceptionHandler to manage:
+	•	Invalid input
+	•	Unauthorized access
+	•	Entity not found
+	•	Duplicate account / resource
+→ Ensures consistent error format for frontend processing.
 
-### 🌐 **5. CORS & giao tiếp FE–BE**
-- Config CORS cho phép FE gọi API.
-- Tối ưu header & method được phép gửi.
+### 🌐 **5. CORS & Frontend Communication**
+	•	Configured flexible CORS for smooth FE–BE communication.
+	•	Optimized allowed headers, exposed headers, and supported HTTP methods.
 
-### 🧱 **6. Cấu trúc dự án chuẩn enterprise**
-Giúp dễ mở rộng, dễ bảo trì, và phù hợp mô hình doanh nghiệp.
+### 🧱 **6. Enterprise-Level Project Structure**
+A clean architecture ready for scaling in real-world systems.
 
 ### 📑 **7. API Documentation bằng Swagger**
-- Tự động generate tài liệu API cho FE sử dụng.
-- Tiêu chuẩn hoá cách FE gọi API.
+	•	Auto-generated OpenAPI documentation.
+	•	Helps frontend developers quickly understand API usage.
 
-### 🐳 **8. Chuẩn bị sẵn cho môi trường triển khai**
-- Docker hoá Backend + PostgreSQL.
+### 🐳 **8. Deployment-Ready Infrastructure**
+	•	Containerized Backend + PostgreSQL using Docker.
+	•	Environment separation for local, dev, and production.
 
 ---
 
 ## 👨‍💻 About Developer
 **Nguyen Thanh Nhan**  
-Backend Developer / Software Engineer Intern  
+Backend Developer / Software Engineer Intern 
+
 📧 Email: masondaniel.dev@gmail.com  
 🔗 GitHub: https://github.com/NNTN32  
 
