@@ -39,7 +39,7 @@ ReactJS Frontend:
 - Mã hóa mật khẩu với **BCrypt**.
 - Sinh & xác thực **JWT Token** để bảo vệ API.
 - Tạo Security Filter để xử lý token trước khi truy cập vào controller.
-- Tối ưu lượng request thông Redis.
+- Tối ưu, phân chia lượng request thông qua Redis, Loadbalancer.
 - Cân bằng chịu tải hệ thống thông qua Kafka.
 
 ### 📌 **2. CRUD ghi chú (Notes Management)**
