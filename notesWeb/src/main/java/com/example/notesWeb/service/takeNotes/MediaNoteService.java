@@ -6,6 +6,7 @@ import com.example.notesWeb.dtos.NoteDto.MediaNoteRequest;
 import com.example.notesWeb.model.takeNotes.MediaType;
 import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
+import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.noteRepo.MediaRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class MediaNoteService {
     private final NotesRepo notesRepo;
     private final MediaRepo mediaRepo;
     private final Cloudinary cloudinary;
+    private final IdGenerateRepo idGenerateRepo;
 
     //Logic handle about upload file on notes like photo, video, audio,...
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -66,6 +68,7 @@ public class MediaNoteService {
             }
 
             NoteMedia noteMedia = new NoteMedia();
+            noteMedia.setId(idGenerateRepo.nextId());
             noteMedia.setUrl(url);
             noteMedia.setType(type);
             noteMedia.setNotes(notes);
