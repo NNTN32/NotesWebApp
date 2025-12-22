@@ -18,8 +18,9 @@ import java.util.UUID;
 public class Notes {
 
     @Id
-    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
-    @GeneratedValue
+//    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+//    @GeneratedValue
+    @Column(columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID id;
 
     @Column(length = 100000, nullable = false)

@@ -5,6 +5,7 @@ import com.example.notesWeb.dtos.AuthRequest;
 import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.model.Status;
 import com.example.notesWeb.model.User;
+import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +24,16 @@ public class AuthService {
     @Autowired
     private jwtProvider tokenProvider;
 
+    @Autowired
+    private IdGenerateRepo idGenerateRepo;
+
     //Logic handle request register user
     public String register(AuthRequest authRequest){
         if(userRepo.existsByUsername(authRequest.getUsername())){
             throw new IllegalArgumentException("Username has already existed!");
         }
         User user = new User();
+        user.setId(idGenerateRepo.nextId());
         user.setUsername(authRequest.getUsername());
         user.setEmail(authRequest.getEmail() + "@example.com");
         user.setPassword(passwordEncoder.encode(authRequest.getPassword()));

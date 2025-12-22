@@ -11,8 +11,9 @@ import java.util.UUID;
 @Table(name = "noteMedia")
 public class NoteMedia {
     @Id
-    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
-    @GeneratedValue
+//    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+//    @GeneratedValue
+    @Column(columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID id;
 
     @Column(nullable = false, length = 500)
