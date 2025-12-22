@@ -16,8 +16,9 @@ import java.util.UUID;
 @Table(name = "users")
 public class User {
     @Id
-    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
-    @GeneratedValue
+//    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+    @Column(columnDefinition = "uuid", nullable = false, updatable = false)
+//    @GeneratedValue
     private UUID id;
 
     private String username;

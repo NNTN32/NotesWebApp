@@ -3,6 +3,7 @@ package com.example.notesWeb.service.takeNotes;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
+import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import org.springframework.stereotype.Service;
 public class CreateNoteService {
     private final UserRepo userRepo;
     private final NotesRepo notesRepo;
+    private final IdGenerateRepo idGenerateRepo;
 
     //Logic create notes for user
     public Notes createNote(NoteRequest noteRequest, String username){
@@ -21,6 +23,7 @@ public class CreateNoteService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         Notes notes = new Notes();
+        notes.setId(idGenerateRepo.nextId());
         notes.setTitle(noteRequest.getTitle());
         notes.setContent(noteRequest.getContent());
         notes.setUser(user);
