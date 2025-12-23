@@ -5,6 +5,7 @@ import com.example.notesWeb.dtos.TodoListDto.ListRequest;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.model.todoLists.State;
+import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.todoRepo.TodoRepo;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class TodoListService {
     private final UserRepo userRepo;
     private final TodoRepo todoRepo;
+    private final IdGenerateRepo idGenerateRepo;
 
     //Logic create list to do for users
     public ListTodo createList(ListRequest listRequest, UUID userId){
@@ -26,6 +28,7 @@ public class TodoListService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userId));
 
         ListTodo listTodo = new ListTodo();
+        listTodo.setIdList(idGenerateRepo.nextId());
         listTodo.setHeading(listRequest.getHeading());
         listTodo.setPurport(listRequest.getPurport());
         listTodo.setUser(user);
