@@ -16,8 +16,9 @@ import java.util.UUID;
 @Table(name = "toDo")
 public class ListTodo {
     @Id
-    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
-    @GeneratedValue
+//    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+//    @GeneratedValue
+    @Column(columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID idList;
 
     @Column(length = 100000, nullable = false)
