@@ -7,6 +7,8 @@ import com.example.notesWeb.exception.redis.noteRedis.NoteRedisConsumer;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -19,18 +21,19 @@ public class RedisConsumerConfig {
     private final NoteRedisConsumer noteRedisConsumer;
     private final MediaRedisConsumer mediaRedisConsumer;
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void startAllConsumers() {
         log.info("Starting all Redis Stream Consumers....");
 
         //Each instance have own name consumer (ensure load balancing)
         //Assign instanceID to ENV (not random UUID each time)
-        String instanceID = System.getenv().getOrDefault("INSTANCE_ID", UUID.randomUUID().toString().substring(0, 6));
+        String instanceID = System.getenv()
+                .getOrDefault("INSTANCE_ID", UUID.randomUUID().toString().substring(0, 6));
 
-        authRedisConsumer.startConsumer("consumer-1" + instanceID);
-        noteRedisConsumer.noteConsumer("consumer-2" + instanceID);
-        mediaRedisConsumer.mediaConsumer("consumer-3" + instanceID);
+        authRedisConsumer.start("auth-" + instanceID);
+        noteRedisConsumer.start("note-" + instanceID);
+        mediaRedisConsumer.start("media-" + instanceID);
 
-        log.info("All Redis Consumers started for instance: {}", instanceID);
+        log.info(" Redis Consumers started with instanceID={}", instanceID);
     }
 }

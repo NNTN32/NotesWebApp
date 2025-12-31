@@ -19,6 +19,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 public class RedisConfig {
 
     //Setup port running Redis
+    //Connect port running RedisStream
     @Bean
     @Primary
     public LettuceConnectionFactory connectionFactory(
@@ -31,14 +32,22 @@ public class RedisConfig {
         return factory;
     }
 
-    //Connect port running RedisStream
+
     //Redis only save key/value type String
+    //Provide key-value, redis stream, cache/pubSub/stream consumer
     @Bean
     public RedisTemplate<String, Object> redisTemplate(LettuceConnectionFactory connectionFactory){
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
+        //Compatible with Redis Stream + JSON when passing object input prevent of error
+        // by input binary key, no-group
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        template.setHashKeySerializer(new StringRedisSerializer());
+        template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
+
+        template.afterPropertiesSet();
         return template;
     }
-
 }
