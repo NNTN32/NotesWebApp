@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
@@ -39,7 +40,7 @@ public class kafkaNoteConsumer {
     private RedisTemplate<String, String> redisTemplate;
 
     @KafkaListener(topics = "note-updates", groupId = "note-update-group")
-    public void consume(NoteUpdateEvent noteUpdateEvent) {
+    public void consume(NoteUpdateEvent noteUpdateEvent, Acknowledgment acknowledgment) {
         try{
             Notes updateNote = taskNoteService.updateNote(
                     noteUpdateEvent.getNoteRequest(),
@@ -59,6 +60,9 @@ public class kafkaNoteConsumer {
                 User user = userRepo.findById(noteUpdateEvent.getUserID())
                         .orElseThrow(() -> new RuntimeException("User not found!"));
                 messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/note-updates", cacheDTO);
+
+                //Prevent kafka retry
+                acknowledgment.acknowledge();
             } catch (JsonProcessingException e) {
                 log.error("Failed to serialize note {} for Redis: {}", updateNote.getId(), e.getMessage());
             } catch (DataAccessException redisEx) {
