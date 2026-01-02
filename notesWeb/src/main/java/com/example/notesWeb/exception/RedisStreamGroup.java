@@ -35,13 +35,22 @@ public class RedisStreamGroup {
                 );
             }
 
+            //Check existing groups
+            boolean groupExists = redisTemplate.opsForStream()
+                    .groups(streamKey)
+                    .stream()
+                    .anyMatch(g -> g.groupName().equals(group));
+
+            if (groupExists) {
+                log.info("Redis group [{}] already exists for stream [{}]", group, streamKey);
+                return;
+            }
+
             //Create group
             redisTemplate.opsForStream()
                     .createGroup(streamKey, ReadOffset.latest(), group);
 
             log.info("Group [{}] created for stream [{}]", group, streamKey);
-        }catch (RedisBusyException e) {
-            log.info("Redis group [{}] already existed for stream [{}]", group, streamKey);
         }catch (Exception e) {
             log.error("Failed to create group [{}] for stream [{}]", group, streamKey, e);
         }
