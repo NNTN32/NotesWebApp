@@ -50,7 +50,9 @@ public class SecurityConfig {
                                 "/reminder/set-time/{idListTodo}",
                                 "/reminder/update-time/{idListTodo}",
                                 "/ws/**",
-                                "/swagger-ui/**"
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
 //                                "/reminder/**"
                         ).permitAll()
                         .anyRequest().authenticated()
