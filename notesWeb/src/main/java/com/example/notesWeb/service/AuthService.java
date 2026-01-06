@@ -30,7 +30,7 @@ public class AuthService {
     //Logic handle request register user
     public String register(AuthRequest authRequest){
         if(userRepo.existsByUsername(authRequest.getUsername())){
-            throw new IllegalArgumentException("Username has already existed!");
+            throw new FailedException("Username has already existed!");
         }
         User user = new User();
         user.setId(idGenerateRepo.nextId());
@@ -46,10 +46,13 @@ public class AuthService {
     //Logic handle request login user
     public AuthResponse login(AuthRequest request){
         User user = userRepo.findByUsername(request.getUsername())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid username!"));
+                .orElseThrow(() -> new FailedException("Username not found!"));
 
         if(!passwordEncoder.matches(request.getPassword(), user.getPassword())){
-            throw new IllegalArgumentException("Invalid username");
+            //Ok for Rest sync but wrong credential -> system async error bc
+            // message can't without discrimination username/password so it will throw into Redis Consumer -> log error 
+//            throw new IllegalArgumentException("Invalid username");
+            throw new FailedException("Invalid password");
         }
 
         String token = tokenProvider.generateToken(user);

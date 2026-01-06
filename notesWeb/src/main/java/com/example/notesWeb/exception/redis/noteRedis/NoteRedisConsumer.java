@@ -3,6 +3,7 @@ package com.example.notesWeb.exception.redis.noteRedis;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.exception.RedisStreamConsume;
 import com.example.notesWeb.model.takeNotes.Notes;
+import com.example.notesWeb.service.FailedException;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import lombok.extern.slf4j.Slf4j;
 import com.google.common.util.concurrent.RateLimiter;
@@ -152,7 +153,13 @@ public class NoteRedisConsumer extends RedisStreamConsume {
                     username
             );
             log.info("Note created {} - {}", notes.getId(), title);
-        }catch (Exception e) {
+        }
+        catch (FailedException e) {
+            log.warn("Create note failed for user {} - log: {}",
+                    username, e.getMessage());
+        }
+        //Bug no retry, replay
+        catch (Exception e) {
             log.error("Error handle message {}: {}", recordNote.getId(), e.getMessage(), e);
         }
     }
