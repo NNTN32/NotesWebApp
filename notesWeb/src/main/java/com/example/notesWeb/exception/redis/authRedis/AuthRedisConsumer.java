@@ -4,6 +4,7 @@ import com.example.notesWeb.dtos.AuthRequest;
 import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.exception.RedisStreamConsume;
 import com.example.notesWeb.model.Status;
+import com.example.notesWeb.service.FailedException;
 import com.example.notesWeb.service.AuthService;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
@@ -196,7 +197,7 @@ public class AuthRedisConsumer extends RedisStreamConsume {
             redisTemplate.opsForHash().putAll(
                     "login:result:" + sessionId,
                     Map.of(
-                            "status" ,authResponse.getStatus().toString(),
+                            "status", authResponse.getStatus().toString(),
                             "username", authResponse.getUsername(),
                             "token", authResponse.getToken(),
                             "id", String.valueOf(authResponse.getId()),
@@ -209,12 +210,31 @@ public class AuthRedisConsumer extends RedisStreamConsume {
                     "login:result:" + sessionId,
                     Duration.ofMinutes(1)
             );
-        } catch (Exception e) {
-            log.error("Authentication failed {}", record.getId(), e);
+            //Catch same exception so it will log error for wrong password
+            //Without discrimination auth fail & system fail
+        }
+//        catch (Exception e) {
+//            log.error("Authentication failed {}", record.getId(), e);
+//            messagingTemplate.convertAndSendToUser(
+//                    sessionId,
+//                    "/queue/login-result",
+//                    new AuthResponse(null, null, username, null, Status.FAIL, e.getMessage())
+//            );
+//        }
+        catch (FailedException e) {
+            log.warn("Auth failed for user {} - {}", username, e.getMessage());
+
             messagingTemplate.convertAndSendToUser(
                     sessionId,
                     "/queue/login-result",
                     new AuthResponse(null, null, username, null, Status.FAIL, e.getMessage())
+            );
+        }catch (Exception e) {
+            log.error("System error while auth {}", record.getId(), e);
+            messagingTemplate.convertAndSendToUser(
+                    sessionId,
+                    "/queue/login-result",
+                    new AuthResponse(null, null, username, null, Status.FAIL, "Internal server error")
             );
         }
     }

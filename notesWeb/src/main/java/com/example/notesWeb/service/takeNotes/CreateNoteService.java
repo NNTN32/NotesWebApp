@@ -6,6 +6,7 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.service.FailedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ public class CreateNoteService {
     //Logic create notes for user
     public Notes createNote(NoteRequest noteRequest, String username){
         User user = userRepo.findByUsername(username)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> new FailedException("User not found"));
 
         Notes notes = new Notes();
         notes.setId(idGenerateRepo.nextId());
