@@ -2,6 +2,8 @@ package com.example.notesWeb.exception.redis.mediaNoteRedis;
 
 import com.example.notesWeb.dtos.NoteDto.MediaNoteRequest;
 import com.example.notesWeb.exception.RedisStreamConsume;
+import com.example.notesWeb.service.FailedException;
+import com.example.notesWeb.service.SystemException;
 import com.example.notesWeb.service.takeNotes.MediaNoteService;
 import lombok.extern.slf4j.Slf4j;
 import com.google.common.util.concurrent.RateLimiter;
@@ -14,6 +16,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
@@ -109,25 +112,76 @@ public class MediaRedisConsumer extends RedisStreamConsume {
             String tempUrl = map.get("tempUrl").toString();
             String fileName = map.get("fileName").toString();
             String contentType = map.get("contentType").toString();
+            String requestId = map.get("requestId").toString();
 
-            log.info("Processing media message {} for post {}", recordId, postID);
-
-            //Reload file from Cloudinary temp URL
-            try (InputStream inputStream = new URL(tempUrl).openStream()){
-                MockMultipartFile multipartFile = new MockMultipartFile(
-                        "file",
-                        fileName,
-                        contentType,
-                        inputStream
-                );
-
-                mediaNoteService.uploadMedia(new MediaNoteRequest(multipartFile), postID);
-
+            if (redisTemplate.hasKey("media:req:" + requestId)) {
+                log.warn("Duplicate media request {}", requestId);
                 redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
-                log.info("Processed and saved media for postId={} from {}", postID, tempUrl);
+                return;
             }
-        } catch (Exception e) {
-            log.error("Failed to process record {}: {}", recordId, e.getMessage());
+
+            String idempotentKey = "media:req:" + requestId;
+            //Hidden bug -> race condition between 2 consumer upload same time
+            //Using Setnx = atomic -> prevent race condition
+            Boolean locked = redisTemplate.opsForValue().setIfAbsent(idempotentKey,
+                    "Processing", Duration.ofMinutes(10));
+
+            if (Boolean.FALSE.equals(locked)) {
+                log.warn("Duplicate media request {}", requestId);
+                redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
+                return;
+            }
+
+            try{
+                log.info("Processing media message {} for post {}", recordId, postID);
+
+                //Reload file from Cloudinary temp URL
+                try (InputStream inputStream = new URL(tempUrl).openStream()){
+                    MockMultipartFile multipartFile = new MockMultipartFile(
+                            "file",
+                            fileName,
+                            contentType,
+                            inputStream
+                    );
+
+                    mediaNoteService.uploadMedia(new MediaNoteRequest(multipartFile), postID);
+
+                    redisTemplate.opsForValue().set(idempotentKey,
+                            "DONE", Duration.ofMinutes(10));
+
+                    redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
+                    log.info("Processed and saved media for postId={} from {}", postID, tempUrl);
+                }catch (FailedException e) {
+                    //business logic fail -> no retry
+                    redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
+                }catch (SystemException e) {
+                    //system fail -> retry -> release lock
+                    redisTemplate.delete(idempotentKey);
+                    throw e;
+                }
+            } catch (Exception e) {
+                //poison message -> ack -> release lock
+                redisTemplate.delete(idempotentKey);
+                redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
+            }
+
+        } catch (FailedException e){
+            //No retry
+            log.warn("Media failed for record {}: {}", recordId, e.getMessage());
+            redisTemplate.opsForStream()
+                    .acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
+        }
+        catch (SystemException e) {
+            //Can retry
+            log.error("Media system error for record {}", recordId, e);
+        }
+        //debug for swallow exception, no ack, re-deliver -> duplication upload file
+        catch (Exception e) {
+            log.error("Failed to process record {}: {}", recordId, e);
+
+            //ack for prevent poison message
+            redisTemplate.opsForStream()
+                    .acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
         }
     }
 

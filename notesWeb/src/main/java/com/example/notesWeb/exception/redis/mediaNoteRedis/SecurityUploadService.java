@@ -2,6 +2,7 @@ package com.example.notesWeb.exception.redis.mediaNoteRedis;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
+import com.example.notesWeb.service.SystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -33,7 +34,7 @@ public class SecurityUploadService {
             log.info("Uploaded temporary file to Cloudinary: {}", url);
             return url;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to upload temporary file: " + e.getMessage(), e);
+            throw new SystemException("Failed to upload temporary file: " , e);
         }
     }
 }
