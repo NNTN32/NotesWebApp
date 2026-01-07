@@ -1,6 +1,7 @@
 package com.example.notesWeb.exception.redis.mediaNoteRedis;
 
 import com.example.notesWeb.dtos.NoteDto.MediaNoteRequest;
+import com.example.notesWeb.service.SystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,7 @@ public class MediaRedisProducer {
         try{
             String tempUrl = securityUploadService.uploadTemporary(file);
             Map<String, String> mediaFields = new HashMap<>();
+            mediaFields.put("requestId", UUID.randomUUID().toString());
             mediaFields.put("username", username);
             mediaFields.put("postID", postID.toString());
             mediaFields.put("tempUrl", tempUrl);
@@ -40,7 +42,7 @@ public class MediaRedisProducer {
 
         }catch (Exception e){
             log.error("Failed to enqueue upload: {}", e.getMessage());
-            throw new RuntimeException("Failed to enqueue upload task: " + e.getMessage());
+            throw new SystemException("Failed to enqueue upload task: ", e);
         }
     }
 }

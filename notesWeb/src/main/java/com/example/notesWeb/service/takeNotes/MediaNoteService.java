@@ -9,6 +9,8 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.noteRepo.MediaRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
+import com.example.notesWeb.service.FailedException;
+import com.example.notesWeb.service.SystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -38,19 +40,19 @@ public class MediaNoteService {
 
         //Check file input
         if (file == null || file.isEmpty()){
-            throw new IllegalArgumentException("File can't be null or empty!");
+            throw new FailedException("File is empty!");
         }
 
         //File size limit
         if (file.getSize() > 50 * 1024 * 1024){
-            throw new IllegalArgumentException("File size exceeds the 50MB limit!");
+            throw new FailedException("File too large!");
         }
 
         //Check for valid file types
         validateFileType(file);
 
         Notes notes = notesRepo.findById(postID)
-                .orElseThrow(() -> new UsernameNotFoundException("Post doesn't exist!"));
+                .orElseThrow(() -> new FailedException("Post doesn't exist!"));
 
         try{
             log.info("Uploading file '{}' ({} bytes) for note {} ", file.getOriginalFilename(), file.getSize(), postID);
@@ -76,10 +78,12 @@ public class MediaNoteService {
             NoteMedia saved = mediaRepo.save(noteMedia);
             log.info("Uploaded media sucessfully for note {}: {}", postID, url);
             return saved;
-        }catch (Exception e){
+        }catch (FailedException e){
+            throw e;
+        }catch (Exception e) {
             log.error("Failed to upload file '{}' for note {}: {}",
-                    file.getOriginalFilename(), postID, e.getMessage(), e);
-            throw new RuntimeException("Failed to upload media: " + e.getMessage());
+                    file.getOriginalFilename(), postID, e);
+            throw new SystemException("Failed to upload media: ", e);
         }
     }
 
@@ -93,7 +97,7 @@ public class MediaNoteService {
         contentType = contentType.toUpperCase();
 
         if(!contentType.startsWith("IMAGE/") && !contentType.startsWith("VIDEO") && !contentType.startsWith("AUDIO")){
-            throw new IllegalArgumentException("Invalid file type! Only image, video or audio are allowed!");
+            throw new FailedException("Invalid file type! Only image, video or audio are allowed!");
         }
     }
 
