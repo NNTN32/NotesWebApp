@@ -8,6 +8,7 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.noteRepo.MediaRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.service.FailedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -28,18 +29,14 @@ public class TaskNoteService {
     //Logic take lists Note
     public List<Notes> getAllListNote(UUID userID){
         User user = userRepo.findById(userID)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userID));
-        try{
-            return notesRepo.findByUserId(user.getId());
-        }catch (Exception e){
-            throw new RuntimeException("Failed to get list Notes! " + e.getMessage());
-        }
+                .orElseThrow(() -> new FailedException("User not found with ID:" + userID));
+        return notesRepo.findByUserId(user.getId());
     }
 
     //Logic get list NoteID
     public List<NoteResponse> getListNoteID(UUID noteID) {
         Notes note = notesRepo.findNoteId(noteID)
-                .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
+                .orElseThrow(() -> new FailedException("Note doesn't exist! " + noteID));
 
         List<NoteResponse> responseList = new ArrayList<>();
 
@@ -79,28 +76,25 @@ public class TaskNoteService {
     //Logic handle update Note
     public Notes updateNote(NoteRequest noteRequest, UUID noteID, UUID userID){
         User user = userRepo.findById(userID)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userID));
+                .orElseThrow(() -> new FailedException("User not found with ID:" + userID));
 
         Notes notes = notesRepo.findNote(noteID)
-                .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
-        try{
-            //Checking authority of owner Notes
-            if(!notes.getUser().getId().equals(user.getId())){
-                throw new AccessDeniedException("You're not authorized to update this Notes!");
-            }
+                .orElseThrow(() -> new FailedException("Note doesn't exist! " + noteID));
 
-            //Main logic update what field user input
-            if(noteRequest.getTitle() != null && !noteRequest.getTitle().isBlank()){
-                notes.setTitle(noteRequest.getTitle());
-            }
-            if(noteRequest.getContent() != null && !noteRequest.getContent().isBlank()){
-                notes.setContent(noteRequest.getContent());
-            }
-
-            notes.setUpdatedAt(LocalDateTime.now());
-            return notesRepo.save(notes);
-        }catch (Exception e){
-            throw new RuntimeException("Failed to update Notes! " + e.getMessage());
+        //Checking authority of owner Notes
+        if(!notes.getUser().getId().equals(user.getId())){
+            throw new AccessDeniedException("You're not authorized to update this Notes!");
         }
+
+        //Main logic update what field user input
+        if(noteRequest.getTitle() != null && !noteRequest.getTitle().isBlank()){
+            notes.setTitle(noteRequest.getTitle());
+        }
+        if(noteRequest.getContent() != null && !noteRequest.getContent().isBlank()){
+            notes.setContent(noteRequest.getContent());
+        }
+
+        notes.setUpdatedAt(LocalDateTime.now());
+        return notesRepo.save(notes);
     }
 }
