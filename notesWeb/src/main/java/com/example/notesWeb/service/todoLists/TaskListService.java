@@ -7,6 +7,7 @@ import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.model.todoLists.State;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.todoRepo.TodoRepo;
+import com.example.notesWeb.service.FailedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -27,18 +28,14 @@ public class  TaskListService {
     //Logic get list to do of users
     public List<ListTodo> getAllTodoList(UUID userId){
         User user = userRepo.findById(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + userId));
-        try{
-            return todoRepo.findByUserId(user.getId());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+                .orElseThrow(() -> new FailedException("User not found with ID:" + userId));
+        return todoRepo.findByUserId(user.getId());
     }
 
     //Logic delete list to do of users
     public void deleteList(UUID idList, UUID idUser){
         ListTodo listTodo = todoRepo.findById(idList)
-                .orElseThrow(() -> new IllegalArgumentException("List doesn't exist! " + idList));
+                .orElseThrow(() -> new FailedException("List doesn't exist! " + idList));
 
         if(!listTodo.getUser().getId().equals(idUser)){
             throw new AccessDeniedException("You are not authorized to delete this note!");
@@ -50,30 +47,25 @@ public class  TaskListService {
     //Logic update to do lists
     public ListTodo updateLists(ListRequest listRequest, UUID idList, UUID idUser){
         User user = userRepo.findById(idUser)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + idUser));
+                .orElseThrow(() -> new FailedException("User not found with ID:" + idUser));
 
         ListTodo todo = todoRepo.findById(idList)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found with ID:" + idList));
+                .orElseThrow(() -> new FailedException("User not found with ID:" + idList));
 
         if(todo.getState() == State.CORRECT){
-            throw new IllegalStateException("This list is marked as CORRECT and cannot be updated!");
+            throw new FailedException("This list is marked as CORRECT and cannot be updated!");
         }
 
         if (!todo.getUser().getId().equals(user.getId())){
-            throw new AccessDeniedException("You're not authorized to update this Lists!");
+            throw new FailedException("You're not authorized to update this Lists!");
         }
-
-        try{
-            if(listRequest.getHeading() != null && !listRequest.getHeading().isBlank()){
-                todo.setHeading(listRequest.getHeading());
-            }
-            if(listRequest.getPurport() != null && !listRequest.getPurport().isBlank()){
-                todo.setPurport(listRequest.getPurport());
-            }
-            todo.setUpdatedAt(LocalDateTime.now());
-            return todoRepo.save(todo);
-        }catch (Exception e){
-            throw new RuntimeException("Failed to update Notes! " + e.getMessage());
+        if(listRequest.getHeading() != null && !listRequest.getHeading().isBlank()){
+            todo.setHeading(listRequest.getHeading());
         }
+        if(listRequest.getPurport() != null && !listRequest.getPurport().isBlank()){
+            todo.setPurport(listRequest.getPurport());
+        }
+        todo.setUpdatedAt(LocalDateTime.now());
+        return todoRepo.save(todo);
     }
 }

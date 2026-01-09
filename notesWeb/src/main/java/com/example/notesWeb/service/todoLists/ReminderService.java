@@ -5,6 +5,7 @@ import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.todoRepo.TodoRepo;
+import com.example.notesWeb.service.FailedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -12,10 +13,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import java.time.*;
 import java.util.UUID;
 
 @Service
@@ -28,6 +26,8 @@ public class ReminderService {
 
     // Set deadline theo giờ cụ thể (HH:mm) + username từ token
     public ListTodo setDeadlineByPresent(UUID idListTodo, String hhmm, Duration reminder, String username) {
+
+        //Throw business exception for setup time maybe invalid
         String[] parts = hhmm.split(":");
         int hh = Integer.parseInt(parts[0]);
         int mm = Integer.parseInt(parts[1]);
@@ -43,10 +43,10 @@ public class ReminderService {
 
         // Cập nhật todo theo user (đảm bảo todo thuộc user đó)
         ListTodo todo = todoRepo.findById(idListTodo)
-                .orElseThrow(() -> new RuntimeException("Todo not found with id: " + idListTodo));
+                .orElseThrow(() -> new FailedException("Todo not found with id: " + idListTodo));
 
         if (!todo.getUser().getUsername().equals(username)) {
-            throw new SecurityException("Unauthorized: This todo does not belong to the current user.");
+            throw new FailedException("Unauthorized: This todo does not belong to the current user.");
         }
 
         todo.setDeadlineTime(dt);
@@ -65,10 +65,10 @@ public class ReminderService {
     //Logic handle update deadline vs reminder time for schedule
     public ListTodo updatedTime (UUID idListTodo, LocalDateTime newDeadline, Duration newReminder, String username) {
         ListTodo todo = todoRepo.findByIdWithUser(idListTodo)
-                .orElseThrow(() -> new RuntimeException("Todo not found with id: " + idListTodo));
+                .orElseThrow(() -> new FailedException("Todo not found with id: " + idListTodo));
 
         if (!todo.getUser().getUsername().equals(username)) {
-            throw new SecurityException("Unauthorized: This todo does not belong to the current user.");
+            throw new FailedException("Unauthorized: This todo does not belong to the current user.");
         }
 
         schedulerService.updateReminderTime(idListTodo, newDeadline, newReminder);
