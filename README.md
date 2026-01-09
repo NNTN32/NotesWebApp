@@ -78,10 +78,10 @@ A clean architecture ready for scaling in real-world systems.
 ---
 
 ## 👨‍💻 About Developer
-**Nguyen Thanh Nhan**  
-Backend Developer / Software Engineer Intern 
+**Nhan Nguyen**  
+Backend Engineer/ Java Software Engineer
 
-📧 Email: masondaniel.dev@gmail.com  
+📧 Email: nhannguyendev371@gmail.com  
 🔗 GitHub: https://github.com/NNTN32  
 
 ---
