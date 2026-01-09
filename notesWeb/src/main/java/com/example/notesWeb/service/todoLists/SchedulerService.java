@@ -43,6 +43,7 @@ public class SchedulerService {
     }
 
     //Mapping idTodo -> Scheduled future (for cancel/reschedule)
+    //Bug in-memory scheduler -> lost task reminder when restarted
     private final Map<UUID, ScheduledFuture<?>> scheduledFutureMap = new ConcurrentHashMap<>();
 
     public void scheduleReminder (ListTodo todo){
