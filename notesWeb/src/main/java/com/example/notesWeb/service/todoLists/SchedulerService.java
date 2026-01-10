@@ -40,6 +40,7 @@ public class SchedulerService {
     public void debugActiveUsers() {
         simpUserRegistry.getUsers().forEach(u ->
                 log.info("Active STOMP user: {}", u.getName()));
+
     }
 
     //Mapping idTodo -> Scheduled future (for cancel/reschedule)
@@ -63,6 +64,11 @@ public class SchedulerService {
         //trigger timing
         Date triggerDate = Date.from(triggerInstant);
 
+
+        if (triggerInstant.isBefore(Instant.now())) {
+            log.warn("Reminder time already passed, sending immediately");
+        }
+
         //Situation if trigger have already been past -> sent now (or cancel request)
         Runnable task = () -> {
             try{
@@ -73,11 +79,11 @@ public class SchedulerService {
                     return;
                 }
 
-                //If it already reminded then next
-//                if (Boolean.TRUE.equals(fresh.getReminded())){
-//                    log.info("Already reminded: {}", fresh.getIdList());
-//                    return;
-//                }
+                //If it already reminded then next, prevent bug race condition
+                if (Boolean.TRUE.equals(fresh.getReminded())){
+                    log.info("Already reminded: {}", fresh.getIdList());
+                    return;
+                }
 
                 //Send websocket realtime to user
                 String username = fresh.getUser().getUsername();

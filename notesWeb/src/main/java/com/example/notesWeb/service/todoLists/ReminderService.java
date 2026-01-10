@@ -14,6 +14,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.time.*;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 @Service
@@ -27,39 +28,45 @@ public class ReminderService {
     // Set deadline theo giờ cụ thể (HH:mm) + username từ token
     public ListTodo setDeadlineByPresent(UUID idListTodo, String hhmm, Duration reminder, String username) {
 
-        //Throw business exception for setup time maybe invalid
         String[] parts = hhmm.split(":");
         int hh = Integer.parseInt(parts[0]);
         int mm = Integer.parseInt(parts[1]);
 
         LocalDate today = LocalDate.now();
-        LocalTime setTime = LocalTime.of(hh, mm);
-        LocalDateTime dt = today.atTime(setTime);
 
-        // Nếu thời gian đã qua, tự động dời sang ngày mai
-        if (dt.isBefore(LocalDateTime.now())) {
-            dt = today.plusDays(1).atTime(setTime);
+        //Throw business exception for setup time maybe invalid
+        try {
+            LocalTime setTime = LocalTime.parse(hhmm, DateTimeFormatter.ofPattern("HH:mm"));
+            LocalDateTime dt = today.atTime(setTime);
+
+            // Nếu thời gian đã qua, tự động dời sang ngày mai
+            if (dt.isBefore(LocalDateTime.now())) {
+                dt = today.plusDays(1).atTime(setTime);
+            }
+
+            // Cập nhật todo theo user (đảm bảo todo thuộc user đó)
+            ListTodo todo = todoRepo.findById(idListTodo)
+                    .orElseThrow(() -> new FailedException("Todo not found with id: " + idListTodo));
+
+            if (!todo.getUser().getUsername().equals(username)) {
+                throw new FailedException("Unauthorized: This todo does not belong to the current user.");
+            }
+
+            todo.setDeadlineTime(dt);
+            todo.setReminderTime(reminder);
+            todo.setReminded(false);
+
+            ListTodo saved = todoRepo.save(todo);
+
+            // Schedule reminder realtime
+            schedulerService.scheduleReminder(saved);
+
+            log.info("Set reminder for '{}' at {} by user '{}'", todo.getHeading(), dt, username);
+            return saved;
+        }catch (DateTimeException e) {
+            throw new FailedException("Invalid time format, expected HH:mm");
         }
 
-        // Cập nhật todo theo user (đảm bảo todo thuộc user đó)
-        ListTodo todo = todoRepo.findById(idListTodo)
-                .orElseThrow(() -> new FailedException("Todo not found with id: " + idListTodo));
-
-        if (!todo.getUser().getUsername().equals(username)) {
-            throw new FailedException("Unauthorized: This todo does not belong to the current user.");
-        }
-
-        todo.setDeadlineTime(dt);
-        todo.setReminderTime(reminder);
-        todo.setReminded(false);
-
-        ListTodo saved = todoRepo.save(todo);
-
-        // Schedule reminder realtime
-        schedulerService.scheduleReminder(saved);
-
-        log.info("Set reminder for '{}' at {} by user '{}'", todo.getHeading(), dt, username);
-        return saved;
     }
 
     //Logic handle update deadline vs reminder time for schedule
