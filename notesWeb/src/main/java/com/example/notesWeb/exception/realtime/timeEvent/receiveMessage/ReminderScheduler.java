@@ -26,6 +26,8 @@ public class ReminderScheduler {
     @Scheduled(fixedDelay = 30000) //each 30s
     @Transactional
     public void pollUpcoming() {
+
+        //use Instant prevent on avoid time zone discrepancies.
         Instant now = Instant.now();
         Instant window = now.plusSeconds(60);
 
@@ -33,6 +35,7 @@ public class ReminderScheduler {
 
         for (ListTodo todo : todoList) {
             long delayMs = Duration.between(now, todo.getTriggerAt()).toMillis();
+
             if (delayMs < 0) delayMs = 0;
 
             reminderPublisher.publishDelay(todo.getIdList(), delayMs);
