@@ -19,9 +19,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 public class ReminderService {
+    //Inject dependency
     private final TodoRepo todoRepo;
-    private final UserRepo userRepo;
-    private final RabbitTemplate rabbitTemplate;
     private final ReminderPublisher reminderPublisher;
 
     // Set a specific time (HH:mm) + username from the token.
@@ -38,7 +37,6 @@ public class ReminderService {
                 dt = dt.plusDays(1);
             }
 
-            // Update todos by user (ensure the todo belongs to that user)
             ListTodo todo = todoRepo.findByIdWithUser(idListTodo)
                     .orElseThrow(() -> new FailedException("Todo not found with id: " + idListTodo));
 
@@ -50,17 +48,22 @@ public class ReminderService {
 
             long reminderMinutes = reminder.toMinutes();
             todo.setReminderTime(reminderMinutes);
+
+            //Time trigger
             Instant trigger = dt.minusMinutes(reminderMinutes).atZone(ZoneId.systemDefault()).toInstant();
 
+            //prevent on duplicate sent reminder
             todo.setTriggerAt(trigger);
             todo.setState(State.PENDING);
             todo.setReminded(false);
 
             todoRepo.save(todo);
 
+            //Calculate delay from present -> trigger
             long delayMs = Duration.between(Instant.now(), trigger).toMillis();
 
-            if (delayMs <= 60_000) { //1 minute to fire MQ.
+            //1 minute publish MQ soon <=> > 1 minute Scheduler will poll later & save into DB
+            if (delayMs <= 60_000) {
                 reminderPublisher.publishDelay(todo.getIdList(), delayMs);
                 log.info("Publish reminder {} to MQ (delay {}ms)", todo.getIdList(), delayMs);
             } else {
