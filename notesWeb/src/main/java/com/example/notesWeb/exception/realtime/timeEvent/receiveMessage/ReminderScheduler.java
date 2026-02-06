@@ -29,7 +29,7 @@ public class ReminderScheduler {
 
         //use Instant prevent on avoid time zone discrepancies.
         Instant now = Instant.now();
-        Instant window = now.plusSeconds(60);
+        Instant window = now.plusSeconds(90);
 
         List<ListTodo> todoList = todoRepo.findUpcomingReminder(State.PENDING, now, window);
 
