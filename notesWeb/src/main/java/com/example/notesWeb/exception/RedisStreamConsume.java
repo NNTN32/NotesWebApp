@@ -1,6 +1,10 @@
 package com.example.notesWeb.exception;
 
+import com.example.notesWeb.service.SystemException;
+import io.lettuce.core.RedisBusyException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Range;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
 
@@ -36,22 +40,10 @@ public abstract class RedisStreamConsume {
     protected abstract void handleMessage(MapRecord<String, Object, Object> record);
 
     public void start(String consumerName) {
-//        createGroup();
-
         recoverPending(consumerName);
         new Thread(() -> consumeLoop(consumerName),
                 "redis-consumer-" + consumerName).start();
     }
-
-//    private void createGroup() {
-//        try{
-//            redisTemplate.opsForStream()
-//                    .createGroup(streamKey, ReadOffset.latest(), group);
-//            log.info("Group [{}] created for stream [{}]", group, streamKey);
-//        }catch (RedisBusyException e) {
-//            log.info("Group [{}] already existed", group);
-//        }
-//    }
 
     private void consumeLoop(String consumerName) {
         log.info("Started consumer [{}] for stream [{}]", consumerName, streamKey);
@@ -89,22 +81,42 @@ public abstract class RedisStreamConsume {
         }
     }
 
-    //Method check process message when app crash/restart
+    //Method check re-read process message when app crash/restart
     private void recoverPending (String consumerName) {
         try{
+            PendingMessagesSummary pendingMessages = redisTemplate.opsForStream()
+                    .pending(streamKey, group);
+
+            if (pendingMessages == null || pendingMessages.getTotalPendingMessages() == 0) {
+                log.info("No pending messages for {}", streamKey);
+                return;
+            }
+
+            List<RecordId> ids = redisTemplate.opsForStream()
+                    .pending(streamKey,
+                            group, Range.unbounded(), 20)
+                    .stream()
+                    .map(PendingMessage::getId)
+                    .toList();
+
+            if (ids.isEmpty()) return;
+
             List<MapRecord<String, Object, Object>> pending =
-                    redisTemplate.opsForStream().read(
-                            Consumer.from(group, consumerName),
-                            StreamReadOptions.empty().count(20),
-                            StreamOffset.create(streamKey, ReadOffset.from("0"))
+                    redisTemplate.opsForStream().claim(
+                            streamKey,
+                            group,
+                            consumerName,
+                            Duration.ofSeconds(10),
+                            ids.toArray(new RecordId[0])
                     );
 
-            if (pending != null && !pending.isEmpty()) {
-                log.info("Recovering {} pending message from {}", pending.size(), streamKey);
-                pending.forEach(r -> executorService.submit(() -> processSafely(r)));
-            }
+            pending.forEach(record ->
+                    executorService.submit(() -> processSafely(record))
+            );
+            log.info("Recovered {} pending messages from {}", pending.size(), streamKey);
+
         } catch (Exception e) {
-            log.warn("No pending message to recover for {}", streamKey);
+            log.warn("Failed to recover pending messages from {}", streamKey, e);
         }
     }
 
