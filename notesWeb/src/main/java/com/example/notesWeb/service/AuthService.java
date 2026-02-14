@@ -3,6 +3,7 @@ package com.example.notesWeb.service;
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.AuthRequest;
 import com.example.notesWeb.dtos.AuthResponse;
+import com.example.notesWeb.model.Role;
 import com.example.notesWeb.model.Status;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.repository.IdGenerateRepo;
@@ -11,9 +12,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Transactional //Combine multiple DB operations into a single transaction.
 public class AuthService {
     @Autowired
     private UserRepo userRepo;
@@ -35,11 +38,11 @@ public class AuthService {
         User user = new User();
         user.setId(idGenerateRepo.nextId());
         user.setUsername(authRequest.getUsername());
-        user.setEmail(authRequest.getEmail() + "@example.com");
+        user.setEmail(authRequest.getEmail());
         user.setPassword(passwordEncoder.encode(authRequest.getPassword()));
-        user.setRole(authRequest.getRole());
+        user.setRole(authRequest.getRole() != null ? authRequest.getRole() : Role.USER);
 
-        userRepo.save(user);
+        userRepo.save(user); //only commit when method ended OK <-> fail → rollback user
         return "User registered successfully";
     }
 

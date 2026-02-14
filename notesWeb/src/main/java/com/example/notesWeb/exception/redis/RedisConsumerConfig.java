@@ -12,6 +12,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -30,9 +32,12 @@ public class RedisConsumerConfig {
         String instanceID = System.getenv()
                 .getOrDefault("INSTANCE_ID", UUID.randomUUID().toString().substring(0, 6));
 
-        authRedisConsumer.start("auth-" + instanceID);
-        noteRedisConsumer.start("note-" + instanceID);
-        mediaRedisConsumer.start("media-" + instanceID);
+        Executors.newSingleThreadScheduledExecutor()
+                        .schedule(() -> {
+                            authRedisConsumer.start("auth-" + instanceID);
+                            noteRedisConsumer.start("note-" + instanceID);
+                            mediaRedisConsumer.start("media-" + instanceID);
+                        }, 3, TimeUnit.SECONDS);
 
         log.info(" Redis Consumers started with instanceID={}", instanceID);
     }
