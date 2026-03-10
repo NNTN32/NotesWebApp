@@ -68,7 +68,7 @@ server:
     connection-timeout: 20000
 
 jwt:
-  secret: ${JWT_SECRET:zc9/OfaQwy6nsqkXs2RuVDeYeH7GfpW1JAooefNelN0=}
+  secret: ${JWT_SECRET:your_default_secret_for_dev_only}
   expiration: ${JWT_EXPIRATION:86400000}
 
 cloudinary:
