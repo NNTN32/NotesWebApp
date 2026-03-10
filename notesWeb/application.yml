@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: notesWeb
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/NoteApp}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:password}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+      naming:
+        # Automatically convert CamelCase (Java) to under_score (PostgreSQL)
+        physical-strategy: org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+    show-sql: ${JPA_SHOW_SQL:false}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      repositories:
+        enabled: false
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+    consumer:
+      group-id: ${KAFKA_CONSUMER_GROUP:note-update-group}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USERNAME:guest}
+    password: ${RABBIT_PASSWORD:guest}
+
+    stomp:
+      relay-host: ${RABBIT_HOST:localhost}
+      relay-port: ${RABBIT_STOMP_PORT:61613}
+      login: ${RABBIT_USERNAME:guest}
+      passcode: ${RABBIT_PASSWORD:guest}
+
+  jackson:
+    serialization:
+      # Avoid date formatting errors when sending data Kafka/Swagger.
+      write-dates-as-timestamps: false
+
+server:
+  port: ${SERVER_PORT:8081}
+
+  #expired time for timeout server
+  tomcat:
+    connection-timeout: 20000
+
+jwt:
+  secret: ${JWT_SECRET:zc9/OfaQwy6nsqkXs2RuVDeYeH7GfpW1JAooefNelN0=}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+cloudinary:
+  cloud_name: ${CLOUDINARY_CLOUD_NAME:}
+  api_key: ${CLOUDINARY_API_KEY:}
+  api_secret: ${CLOUDINARY_API_SECRET:}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: ${LOG_SQL_LEVEL:INFO}
+    org.springframework.kafka: ERROR
