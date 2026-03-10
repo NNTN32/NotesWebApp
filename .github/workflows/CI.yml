@@ -1,0 +1,108 @@
+name: Build & Integration Test Notes App
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./notesWeb
+        
+    env:
+      # App
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+      # Database
+      DB_URL: ${{ secrets.DB_URL }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+      # JWT
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+      JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
+
+      # Redis
+      REDIS_HOST: ${{ secrets.REDIS_HOST }}
+      REDIS_PORT: ${{ secrets.REDIS_PORT }}
+
+      # Kafka
+      KAFKA_BOOTSTRAP_SERVERS: ${{ secrets.KAFKA_BOOTSTRAP_SERVERS }}
+
+      # RabbitMQ
+      RABBIT_HOST: ${{ secrets.RABBIT_HOST }}
+      RABBIT_PORT: ${{ secrets.RABBIT_PORT }}
+      RABBIT_USERNAME: ${{ secrets.RABBIT_USERNAME }}
+      RABBIT_PASSWORD: ${{ secrets.RABBIT_PASSWORD }}
+      RABBIT_STOMP_PORT: ${{ secrets.RABBIT_STOMP_PORT }}
+
+      # Cloudinary
+      CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+
+      # Image version
+      APP_VERSION: ${{ github.sha }}
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build Spring Boot
+        run: ./mvnw clean package -DskipTests
+
+      - name: Build Docker image (Local)
+        run: docker build -t ${{ env.DOCKERHUB_USERNAME }}/notes-app:${{ env.APP_VERSION }} .
+
+      - name: Start Services & Integration Test
+        run: |
+          docker compose up -d
+          echo "Waiting for service to be healthy..."
+          sleep 60 
+
+      - name: Check Swagger API
+        run: |
+          status_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/v3/api-docs)
+          if [ $status_code -eq 200 ]; then
+            echo "Swagger is ok!"
+          else
+            echo "Integration Test Failed with status $status_code"
+            docker compose logs notes-app
+            exit 1
+          fi
+
+      - name: Login DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.DOCKERHUB_USERNAME }}/notes-app:${{ env.APP_VERSION }}
+          
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+             echo "Currently on the main branch -> Push the latest version"
+             docker tag ${{ env.DOCKERHUB_USERNAME }}/notes-app:${{ env.APP_VERSION }} ${{ env.DOCKERHUB_USERNAME }}/notes-app:latest
+             docker push ${{ env.DOCKERHUB_USERNAME }}/notes-app:latest
+          else
+             BRANCH_NAME=$(echo ${{ github.ref_name }} | sed 's/\//-/g')
+             echo "Currently on the feature branch -> Push the tag: feature-$BRANCH_NAME"
+             docker tag ${{ env.DOCKERHUB_USERNAME }}/notes-app:${{ env.APP_VERSION }} ${{ env.DOCKERHUB_USERNAME }}/notes-app:feature-$BRANCH_NAME
+             docker push ${{ env.DOCKERHUB_USERNAME }}/notes-app:feature-$BRANCH_NAME
+          fi
+
+      - name: Shutdown
+        if: always()
+        run: docker compose down
