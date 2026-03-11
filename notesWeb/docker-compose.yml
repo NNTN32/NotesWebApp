@@ -1,6 +1,10 @@
 services:
   notes-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ${DOCKERHUB_USERNAME}/notes-app:${APP_VERSION}
+    container_name: notes-app
     ports:
       - "8081:8081"
     depends_on:
