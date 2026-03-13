@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ${DOCKERHUB_USERNAME}/notes-app:${APP_VERSION}
+    image: ${DOCKERHUB_USERNAME}/notes-app:${APP_VERSION:-latest}
     container_name: notes-app
     ports:
       - "8081:8081"
