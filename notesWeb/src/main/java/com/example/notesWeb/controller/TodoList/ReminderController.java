@@ -6,6 +6,8 @@ import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.exception.realtime.timeEvent.receiveMessage.ReminderService;
 import com.example.notesWeb.exception.realtime.timeEvent.receiveMessage.ReminderScheduler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +26,8 @@ public class ReminderController {
     private final jwtProvider jwtProvider;
     private final UserRepo userRepo;
 
+    @Operation(summary = "User set deadline time todo list")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/set-time/{idListTodo}")
     public ResponseEntity<?> setDeadlineReminder(
             @RequestHeader("Authorization") String authorHeader,

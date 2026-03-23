@@ -9,6 +9,8 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.takeNotes.MediaNoteService;
 import com.example.notesWeb.service.takeNotes.TaskMediaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +39,8 @@ public class MediaNoteController {
     private MediaRedisProducer mediaRedisProducer;
 
     //API Handle Uploaded Media Notes
+    @Operation(summary = "User uploaded file media on Notes")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/uploads/{postID}")
     public ResponseEntity<?> upload(
             @PathVariable UUID postID,
@@ -74,6 +78,7 @@ public class MediaNoteController {
     }
 
     //API Handle Delete MediaNote
+    @Operation(summary = "User deleted file media on Notes")
     @DeleteMapping("/delete/{mediaID}")
     public ResponseEntity<?> deleteNotesFile(@PathVariable UUID mediaID, @RequestParam UUID noteId){
         try{

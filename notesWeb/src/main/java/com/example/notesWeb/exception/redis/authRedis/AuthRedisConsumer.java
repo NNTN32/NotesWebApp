@@ -1,13 +1,17 @@
 package com.example.notesWeb.exception.redis.authRedis;
 
+import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.AuthRequest;
 import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.exception.RedisStreamConsume;
 import com.example.notesWeb.model.Status;
+import com.example.notesWeb.model.User;
+import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.FailedException;
 import com.example.notesWeb.service.AuthService;
 import com.google.common.util.concurrent.RateLimiter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
@@ -29,6 +33,11 @@ public class AuthRedisConsumer extends RedisStreamConsume {
 
     private final RateLimiter limitRequestLogin = RateLimiter.create(50.0);
 
+    @Autowired
+    private UserRepo userRepo;
+
+    @Autowired
+    private jwtProvider jwtProvider;
 
     //Write handle constructor instead of using bean let it created
     public AuthRedisConsumer(
@@ -63,7 +72,7 @@ public class AuthRedisConsumer extends RedisStreamConsume {
             messagingTemplate.convertAndSendToUser(
                     sessionId,
                     "/queue/login-result",
-                    new AuthResponse(null, null, username, null, Status.FAIL, "Too many login attempts")
+                    new AuthResponse(null, null, null, username, null, Status.FAIL, "Too many login attempts")
             );
             return;
         }
@@ -71,18 +80,27 @@ public class AuthRedisConsumer extends RedisStreamConsume {
         try {
             AuthResponse authResponse = authService.login(new AuthRequest(username, password, sessionId));
 
+            //initialization rotation secret
+            User user = userRepo.findByUsername(username).get();
+            String rs = jwtProvider.generateRSToken(user);
+
+            //Save to Redis to manage "Ghost Sessions"
+            String sessionKey = "session:" + username + ":" + UUID.randomUUID().toString().substring(0,8);
+            redisTemplate.opsForValue().set(sessionKey, rs, Duration.ofDays(7));
+
+            //Sent through websocket
             messagingTemplate.convertAndSendToUser(
                     sessionId,
                     "/queue/login-result",
                     authResponse
             );
-
+            //Pass the result into a Hash for the Controller to extract
             redisTemplate.opsForHash().putAll(
                     resultKey,
                     Map.of(
-                            "status", authResponse.getStatus().toString(),
-                            "username", authResponse.getUsername(),
+                            "status", "SUCCESS",
                             "token", authResponse.getToken(),
+                            "rotationSecret", rs, //Return to Controller set Cookie
                             "id", String.valueOf(authResponse.getId()),
                             "role", String.valueOf(authResponse.getRole()),
                             "message", authResponse.getMessage()
@@ -99,14 +117,14 @@ public class AuthRedisConsumer extends RedisStreamConsume {
             messagingTemplate.convertAndSendToUser(
                     sessionId,
                     "/queue/login-result",
-                    new AuthResponse(null, null, username, null, Status.FAIL, e.getMessage())
+                    new AuthResponse(null, null, null, username, null, Status.FAIL, e.getMessage())
             );
         }catch (Exception e) {
             log.error("System error while auth {}", record.getId(), e);
             messagingTemplate.convertAndSendToUser(
                     sessionId,
                     "/queue/login-result",
-                    new AuthResponse(null, null, username, null, Status.FAIL, "Internal server error")
+                    new AuthResponse(null, null, null, username, null, Status.FAIL, "Internal server error")
             );
         }
     }

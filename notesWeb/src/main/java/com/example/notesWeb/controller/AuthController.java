@@ -1,11 +1,16 @@
 package com.example.notesWeb.controller;
 
 import com.example.notesWeb.dtos.AuthRequest;
+import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.exception.redis.authRedis.AuthRedisProducer;
 import com.example.notesWeb.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,6 +31,7 @@ public class AuthController {
     private RedisTemplate<String, Object> redisTemplate;
 
     //Api Handle Register
+    @Operation(summary = "User Register")
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody AuthRequest request){
         try{
@@ -37,6 +43,7 @@ public class AuthController {
     }
 
     //Api handle Login sending request Redis
+    @Operation(summary = "User Login")
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody AuthRequest authRequest){
         try{
@@ -59,15 +66,67 @@ public class AuthController {
     }
 
     //Api handle get sessionID help user login
+    @Operation(summary = "Get the session ID for the user")
     @GetMapping("/login/result/{sessionId}")
-    public ResponseEntity<?> getLoginResult(@PathVariable String sessionId){
+    public ResponseEntity<?> getLoginResult(@PathVariable String sessionId, HttpServletResponse response){
         String key = "login:result:" + sessionId;
         Map<Object, Object> result = redisTemplate.opsForHash().entries(key);
         if(result == null || result.isEmpty()){
             return ResponseEntity.status(HttpStatus.ACCEPTED)
                     .body(Map.of("status", "PENDING", "message", "Processing..."));
         }
+
+        if ("Success".equals(result.get("status"))) {
+            //Get info from Redis
+            String accessToken = (String) result.get("token");
+            String rotationSecret = (String) result.get("rotationSecret"); //born from consumer
+
+            //Set rotation secret into Cookie
+            ResponseCookie cookie = ResponseCookie.from("rotation_secret", rotationSecret)
+                    .httpOnly(true)
+                    .secure(true) //only run through https
+                    .path("/")
+                    .maxAge(604800)
+                    .sameSite("Strict")
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+            //delete key on Redis (one-time handshake)
+            redisTemplate.delete(key);
+
+            return ResponseEntity.ok(Map.of("status", "success", "accessToken", accessToken, "userID", result.get("id")));
+        }
         return ResponseEntity.ok(result);
     }
 
+    //Api handle refresh expired token & key
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@CookieValue(name = "rotaion_secret", required = false) String oldrs,
+                                     HttpServletResponse response) {
+        if (oldrs == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Missing rotation secret");
+        }
+
+        try {
+            AuthResponse result = authService.refresh(oldrs);
+
+            //Overwrite the new RS into the HttpOnly Cookie
+            ResponseCookie responseCookie = ResponseCookie.from("rotation_secret", result.getRotationSecret())
+                    .httpOnly(true)
+                    .secure(true)
+                    .path("/")
+                    .maxAge(604800)
+                    .sameSite("Strict")
+                    .build();
+            response.addHeader(HttpHeaders.SET_COOKIE, responseCookie.toString());
+            return ResponseEntity.ok(Map.of("accessToken", result.getToken(),"status", "SUCCESS"));
+        } catch (Exception e) {
+            //If an error occurs, delete the client-side cookies immediately
+            ResponseCookie deleteCookie = ResponseCookie.from("rotation_secret", "")
+                    .maxAge(0).path("/").build();
+            response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
+    }
 }
