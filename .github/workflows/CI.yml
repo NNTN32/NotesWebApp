@@ -43,6 +43,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Run Unit Tests
+        run: ./mvnw test
       - name: Start Services & Integration Test
         env:
         # App
@@ -94,6 +96,9 @@ jobs:
           echo "Integration test failed!"
           docker compose logs notes-app
           exit 1
+
+          echo "Running JUnit Integration Tests..."
+          ./mvnw test -Dtest=*IntegrationTest -Dspring.profiles.active=test
 
       - name: Promote Image to Branch Tag
         if: success()
