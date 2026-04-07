@@ -16,7 +16,9 @@ public interface TodoRepo extends JpaRepository<ListTodo, UUID> {
     @Query("SELECT t FROM ListTodo t JOIN FETCH t.user WHERE t.idList = :id")
     Optional<ListTodo> findByIdWithUser(@Param("id") UUID id);
 
-    @Query("SELECT t FROM ListTodo t WHERE t.state = :state AND t.triggerAt BETWEEN :now AND :window")
+    //Scan based on Index from class entities
+    @Query("SELECT t FROM ListTodo t WHERE t.state = :state " +
+            "AND t.triggerAt >= :now AND t.triggerAt <= :window")
     List<ListTodo> findUpcomingReminder(@Param("state") State state,
                                         @Param("now") Instant now,
                                         @Param("window") Instant window);

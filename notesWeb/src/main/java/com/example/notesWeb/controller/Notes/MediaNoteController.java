@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
 
 import java.util.UUID;
 
@@ -41,7 +42,7 @@ public class MediaNoteController {
     //API Handle Uploaded Media Notes
     @Operation(summary = "User uploaded file media on Notes")
     @SecurityRequirement(name = "bearerAuth")
-    @PostMapping("/uploads/{postID}")
+    @PostMapping(value = "/uploads/{postID}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upload(
             @PathVariable UUID postID,
             @RequestHeader("Authorization") String authorHeader,

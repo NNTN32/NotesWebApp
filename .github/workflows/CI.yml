@@ -3,7 +3,16 @@ name: Build & Integration Test Notes App
 on:
   push:
     branches: [ "main", "feature/**" ]
+  
+  #Check code before merge to main
+  pull_request:
+    branches: [ "main" ]
 
+
+#Automatically discard old builds when new commits are made on the same branch
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -23,8 +32,29 @@ jobs:
           distribution: 'temurin'
           cache: 'maven' #Caching Maven dependencies for faster builds
 
+      #Ensure the Maven script has execute permissions
+      - name: Make mvnm executable
+        run: chmod +x ./mvnw
+      - name: Run Unit Tests
+        run: ./mvnw test -B
+      - name: Upload Test Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: ./notesWeb/target/surefire-reports/
       - name: Build with Maven
-        run: ./mvnw clean package -DskipTests
+        run: ./mvnw clean package -DskipTests -B
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3 #Optimize -> use for managing build images and caching
@@ -39,12 +69,10 @@ jobs:
         with:
           context: ./notesWeb
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Run Unit Tests
-        run: ./mvnw test
       - name: Start Services & Integration Test
         env:
         # App
@@ -85,39 +113,30 @@ jobs:
           docker compose up -d 
           echo "Waiting for service to be healthy..."
           #Loop check Swagger
+
+          HEALTHY=false
           for i in {1..20}; do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/v3/api-docs | grep -q "200"; then
               echo "Swagger is up & running!"
-              exit 0
+              HEALTHY=true
+              break
             fi
             echo "Waiting for api.. ($i/20)"
             sleep 5
           done
-          echo "Integration test failed!"
-          docker compose logs notes-app
-          exit 1
+          
+          if [ "$HEALTHY" = false ]; then
+            echo "Service failed!"
+            docker compose logs notes-app
+            exit 1
+          fi
 
           echo "Running JUnit Integration Tests..."
-          ./mvnw test -Dtest=*IntegrationTest -Dspring.profiles.active=test
+          ./mvnw test -Dtest=*IntegrationTest -Dspring.profiles.active=test -B
 
       - name: Promote Image to Branch Tag
-        if: success()
-        run: |
-          IMAGE_NAME=${{ secrets.DOCKERHUB_USERNAME }}/notes-app
-          SHA_TAG=${{ github.sha }}
-          
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "Promoting to LATEST"
-            docker pull $IMAGE_NAME:$SHA_TAG
-            docker tag $IMAGE_NAME:$SHA_TAG $IMAGE_NAME:latest
-            docker push $IMAGE_NAME:latest
-          else
-            CLEAN_BRANCH=$(echo ${{ github.ref_name }} | sed 's/\//-/g')
-            echo "Promoting to feature-$CLEAN_BRANCH"
-            docker pull $IMAGE_NAME:$SHA_TAG
-            docker tag $IMAGE_NAME:$SHA_TAG $IMAGE_NAME:feature-$CLEAN_BRANCH
-            docker push $IMAGE_NAME:feature-$CLEAN_BRANCH
-          fi
+        if: success() && github.ref == 'refs/heads/main'
+        run: echo "Code is stable on main. Image with 'latest' tag is ready!"
 
       - name: Shutdown
         if: always()

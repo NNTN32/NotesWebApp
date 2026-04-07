@@ -59,6 +59,11 @@ spring:
     serialization:
       # Avoid date formatting errors when sending data Kafka/Swagger.
       write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: UTC
+    default-property-inclusion: non_null
 
 server:
   port: ${SERVER_PORT:8081}
