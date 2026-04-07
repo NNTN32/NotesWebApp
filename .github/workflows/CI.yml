@@ -36,16 +36,17 @@ jobs:
       - name: Make mvnm executable
         run: chmod +x ./mvnw
       - name: Run Unit Tests
-        run: ./mvnw test -B
-      - name: Upload Test Reports
+        run: ./mvnw test -Dtest=!*IntegrationTest -B
+      - name: Upload Unit Test Reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: unit-test-reports
           path: ./notesWeb/target/surefire-reports/
       - name: Build with Maven
         run: ./mvnw clean package -DskipTests -B
 
+      #Manage Docker Tags
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -69,7 +70,7 @@ jobs:
         with:
           context: ./notesWeb
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }} #Auto get tags from step docker meta
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -134,6 +135,12 @@ jobs:
           echo "Running JUnit Integration Tests..."
           ./mvnw test -Dtest=*IntegrationTest -Dspring.profiles.active=test -B
 
+      - name: Upload Integration Test Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: ./notesWeb/target/surefire-reports/
       - name: Promote Image to Branch Tag
         if: success() && github.ref == 'refs/heads/main'
         run: echo "Code is stable on main. Image with 'latest' tag is ready!"
