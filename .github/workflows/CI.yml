@@ -33,10 +33,10 @@ jobs:
           cache: 'maven' #Caching Maven dependencies for faster builds
 
       #Ensure the Maven script has execute permissions
-      - name: Make mvnm executable
+      - name: Make mvnw executable
         run: chmod +x ./mvnw
       - name: Run Unit Tests
-        run: ./mvnw test -Dtest=!*IntegrationTest -B
+        run: ./mvnw test -Dtest=!*IntegrationTest,!NotesWebApplicationTests -B
       - name: Upload Unit Test Reports
         if: failure()
         uses: actions/upload-artifact@v4
@@ -133,7 +133,7 @@ jobs:
           fi
 
           echo "Running JUnit Integration Tests..."
-          ./mvnw test -Dtest=*IntegrationTest -Dspring.profiles.active=test -B
+          ./mvnw test -Dtest=*IntegrationTest,NotesWebApplicationTests -Dspring.profiles.active=test -B
 
       - name: Upload Integration Test Reports
         if: failure()
