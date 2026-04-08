@@ -113,8 +113,16 @@ jobs:
         run: |
           docker compose up -d 
           echo "Waiting for service to be healthy..."
-          #Loop check Swagger
+          sudo apt-get update && sudo apt-get install -y netcat-openbsd
 
+          echo "Waiting for Infrastructure ports"
+          timeout 60s bash -c "until nc -z $DB_URL 5432; do echo 'Waiting for database...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z $REDIS_HOST 6379; do echo 'Waiting for Redis...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z $KAFKA_BOOTSTRAP_SERVERS 9092; do echo 'Waiting for Kafka...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z $RABBIT_HOST 5672; do echo 'Waiting for RabbitMQ...'; sleep 1; done"
+
+          #Loop check Swagger
+          echo "Infrastructure is up. Checking App Swagger..."
           HEALTHY=false
           for i in {1..20}; do
             if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/v3/api-docs | grep -q "200"; then
@@ -128,12 +136,12 @@ jobs:
           
           if [ "$HEALTHY" = false ]; then
             echo "Service failed!"
-            docker compose logs notes-app
+            docker compose logs 
             exit 1
           fi
 
           echo "Running JUnit Integration Tests..."
-          ./mvnw test -Dtest=*IntegrationTest,NotesWebApplicationTests -Dspring.profiles.active=test -B
+          ./mvnw test -Dtest=*IntegrationTest,NotesWebApplicationTests -Dspring.profiles.active=test -B -e
 
       - name: Upload Integration Test Reports
         if: failure()
