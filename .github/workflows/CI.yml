@@ -36,7 +36,7 @@ jobs:
       - name: Make mvnw executable
         run: chmod +x ./mvnw
       - name: Run Unit Tests
-        run: ./mvnw test -Dtest=!*IntegrationTest,!NotesWebApplicationTests -B
+        run: ./mvnw test -Dtest=!*IntegrationTest,!NotesWebApplicationTests -Dsurefire.failIfNoSpecifiedTests=false -B
       - name: Upload Unit Test Reports
         if: failure()
         uses: actions/upload-artifact@v4
