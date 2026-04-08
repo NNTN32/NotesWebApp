@@ -112,6 +112,9 @@ jobs:
 
         run: |
           docker compose up -d 
+          echo "Checking container status!"
+          docker compose ps 
+          
           echo "Waiting for service to be healthy..."
           sudo apt-get update && sudo apt-get install -y netcat-openbsd
 

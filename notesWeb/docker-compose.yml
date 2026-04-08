@@ -47,7 +47,7 @@ services:
   notes-postgres:
     image: postgres:15
     ports:
-      - "5433:5432"
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -77,16 +77,17 @@ services:
   notes-kafka:
     image: apache/kafka:3.7.0
     ports:
-      - "9094:9092"
+      - "9092:9092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
 
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://notes-kafka:9092
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9093, EXTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://notes-kafka:9093, EXTERNAL://localhost:9092
 
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT, CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@notes-kafka:9093
 
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
@@ -109,7 +110,7 @@ services:
              rabbitmq-server"
     ports:
       - "15672:15672"
-      - "61614:61613"
+      - "61613:61613"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBIT_USERNAME}
       RABBITMQ_DEFAULT_PASS: ${RABBIT_PASSWORD}
