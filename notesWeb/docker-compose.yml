@@ -110,6 +110,7 @@ services:
       sh -c "rabbitmq-plugins enable rabbitmq_stomp &&
              rabbitmq-server"
     ports:
+      - "5672:5672" #Connect to RabbitMQ to send and receive messages
       - "15672:15672"
       - "61613:61613"
     environment:
