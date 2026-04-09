@@ -30,13 +30,23 @@ public class ReminderService {
         //Throw business exception for setup time maybe invalid
         try {
             //Convert type string time input into zoneID first
-            ZoneId zoneId = ZoneId.of(userTimezone != null ? userTimezone : "UTC");
+            ZoneId zoneId;
+            try {
+                zoneId = ZoneId.of(userTimezone != null ? userTimezone : "UTC");
+            }catch (DateTimeException e){
+                throw new FailedException("Invalid time zone!" + userTimezone);
+            }
 
             //Get the current time for that time zone
             ZonedDateTime userZone = ZonedDateTime.now(zoneId).truncatedTo(ChronoUnit.MINUTES);
 
             //Parse input time zone by user
-            LocalTime setTime = LocalTime.parse(time).truncatedTo(ChronoUnit.MINUTES);
+            LocalTime setTime;
+            try {
+                setTime = LocalTime.parse(time).truncatedTo(ChronoUnit.MINUTES);
+            }catch (DateTimeException e) {
+                throw new FailedException("The time format is incorrect; please use HH:mm (e.g., 16:50)!");
+            }
 
             //Combine into a specific time
             ZonedDateTime dt = userZone.with(setTime);

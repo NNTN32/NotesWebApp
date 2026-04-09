@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -30,8 +31,7 @@ public class ReminderController {
     private final jwtProvider jwtProvider;
     private final UserRepo userRepo;
 
-    @Operation(summary = "User set deadline time todo list",
-               parameters = @Parameter(name = "X-Timezone", description = "User's time zone", in = ParameterIn.HEADER))
+    @Operation(summary = "User set deadline time todo list")
     @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/set-time/{idListTodo}")
     public ResponseEntity<?> setDeadlineReminder(
@@ -48,21 +48,18 @@ public class ReminderController {
                         .body("Authorization header is missing or invalid.");
             }
 
-//            String token = authorHeader.substring(7);
-//
-//            // Check token expiration
-//            if (jwtProvider.isTokenExpired(token)) {
-//                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-//                        .body("Token expired. Please login again.");
-//            }
-
             // Get username from JWT
             String username = authentication.getName();
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
             //Convert Duration
-            Duration duration = Duration.parse(reminder);
+            Duration duration;
+            try {
+                duration = Duration.parse(reminder);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body("Invalid reminder format!");
+            }
 
             // Callback logic service
             ListTodo updated = reminderService.setDeadlineByPresent(idListTodo, time, duration, timezone, username);
@@ -72,6 +69,7 @@ public class ReminderController {
         } catch (DateTimeParseException e) {
             return ResponseEntity.badRequest().body("Wrong type input timezone");
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }

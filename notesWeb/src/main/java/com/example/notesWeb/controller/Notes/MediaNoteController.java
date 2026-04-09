@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -46,10 +47,9 @@ public class MediaNoteController {
     public ResponseEntity<?> upload(
             @PathVariable UUID postID,
             @RequestHeader("Authorization") String authorHeader,
-            //Use ModelAttribute make automatically bind all form data to the DTO object (easy maintain).
-            //Only user RequestParam to upload only one file without metadata
-            @ModelAttribute MediaNoteRequest mediaNoteRequest
+            @RequestPart("file")MultipartFile file
     ){
+        MediaNoteRequest mediaNoteRequest = new MediaNoteRequest(file);
         try{
 
             //Check token make sure can get info of user
@@ -70,7 +70,7 @@ public class MediaNoteController {
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
-            mediaRedisProducer.sendMediaRequest(username, postID, mediaNoteRequest.getFile());
+            mediaRedisProducer.sendMediaRequest(username, postID, file);
             return ResponseEntity.accepted().body("Upload accepted");
 
         }catch (IllegalArgumentException e){
