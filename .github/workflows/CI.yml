@@ -93,7 +93,7 @@ jobs:
          REDIS_PORT: ${{ secrets.REDIS_PORT }}
 
         # Kafka
-         KAFKA_BOOTSTRAP_SERVERS: localhost:9092
+         KAFKA_BOOTSTRAP_SERVERS: localhost:9095
 
         # RabbitMQ
          RABBIT_HOST: localhost
@@ -121,7 +121,7 @@ jobs:
           echo "Waiting for Infrastructure ports"
           timeout 60s bash -c "until nc -z localhost 5432; do echo 'Waiting for database...'; sleep 1; done"
           timeout 60s bash -c "until nc -z localhost 6379; do echo 'Waiting for Redis...'; sleep 1; done"
-          timeout 60s bash -c "until nc -z localhost 9092; do echo 'Waiting for Kafka...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 9095; do echo 'Waiting for Kafka...'; sleep 1; done"
           timeout 60s bash -c "until nc -z localhost 5672; do echo 'Waiting for RabbitMQ...'; sleep 1; done"
           timeout 60s bash -c "until nc -z localhost 61613; do echo 'Waiting for STOMP...'; sleep 1; done"
 
