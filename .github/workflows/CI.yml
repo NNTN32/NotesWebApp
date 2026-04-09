@@ -80,7 +80,7 @@ jobs:
          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
 
         # Database
-         DB_URL: jdbc:postgresql://localhost:5432/NoteApp
+         DB_URL: jdbc:postgresql://localhost:5433/NoteApp
          DB_USERNAME: ${{ secrets.DB_USERNAME }}
          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
@@ -119,11 +119,11 @@ jobs:
           sudo apt-get update && sudo apt-get install -y netcat-openbsd
 
           echo "Waiting for Infrastructure ports"
-          timeout 60s bash -c "until nc -z localhost 5432; do echo 'Waiting for database...'; sleep 1; done"
-          timeout 60s bash -c "until nc -z localhost 6379; do echo 'Waiting for Redis...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 5433; do echo 'Waiting for database...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 6380; do echo 'Waiting for Redis...'; sleep 1; done"
           timeout 60s bash -c "until nc -z localhost 9095; do echo 'Waiting for Kafka...'; sleep 1; done"
-          timeout 60s bash -c "until nc -z localhost 5672; do echo 'Waiting for RabbitMQ...'; sleep 1; done"
-          timeout 60s bash -c "until nc -z localhost 61613; do echo 'Waiting for STOMP...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 5673; do echo 'Waiting for RabbitMQ...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 61614; do echo 'Waiting for STOMP...'; sleep 1; done"
 
           #Loop check Swagger
           echo "Infrastructure is up. Checking App Swagger..."
