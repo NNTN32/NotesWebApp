@@ -25,20 +25,24 @@ public class MediaRedisProducer {
 
     public void sendMediaRequest(String username, UUID postID, MultipartFile file){
         try{
-            String tempUrl = securityUploadService.uploadTemporary(file);
+            Map uploadResult = securityUploadService.uploadCloudinary(file);
+
+            String finalUrl = (String) uploadResult.get("secure_url");
+            String resourceType = (String) uploadResult.get("resource_type");
+
             Map<String, String> mediaFields = new HashMap<>();
             mediaFields.put("requestId", UUID.randomUUID().toString());
             mediaFields.put("username", username);
             mediaFields.put("postID", postID.toString());
-            mediaFields.put("tempUrl", tempUrl);
-            mediaFields.put("fileName", file.getOriginalFilename());
-            mediaFields.put("contentType", file.getContentType());
+            mediaFields.put("finalUrl", finalUrl);
+            mediaFields.put("resourceType", resourceType);
 
             System.out.println("Sending request to Redis Stream: " + mediaFields);
             redisTemplate.opsForStream()
                     .add(StreamRecords.newRecord()
-                            .in("media:create:stream")
+                            .in(key_STREAM)
                             .ofMap(mediaFields));
+            log.info("Enqueued media metadata for post {}: URL {}", postID, finalUrl);
 
         }catch (Exception e){
             log.error("Failed to enqueue upload: {}", e.getMessage());

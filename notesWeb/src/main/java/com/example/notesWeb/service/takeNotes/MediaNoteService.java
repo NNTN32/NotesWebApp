@@ -35,57 +35,76 @@ public class MediaNoteService {
 
     //Logic handle about upload file on notes like photo, video, audio,...
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public NoteMedia uploadMedia(MediaNoteRequest mediaNoteRequest, UUID postID){
-        MultipartFile file = mediaNoteRequest.getFile();
-
-        //Check file input
-        if (file == null || file.isEmpty()){
-            throw new FailedException("File is empty!");
-        }
-
-        //File size limit
-        if (file.getSize() > 50 * 1024 * 1024){
-            throw new FailedException("File too large!");
-        }
-
-        //Check for valid file types
-        validateFileType(file);
-
+    public void saveMediaMetadata (UUID postID, String url, String resourceType) {
         Notes notes = notesRepo.findById(postID)
                 .orElseThrow(() -> new FailedException("Post doesn't exist!"));
 
-        try{
-            log.info("Uploading file '{}' ({} bytes) for note {} ", file.getOriginalFilename(), file.getSize(), postID);
-
-            //Upload with retry 3 times
-            Map<String, Object> uploadResult = uploadRetry(file, 3);
-            String url = (String) uploadResult.get("secure_url");
-            String resourceType = ((String) uploadResult.get("resource_type")).toUpperCase();
-            MediaType type = MediaType.RAW;
-
-            try{
-                type = MediaType.valueOf(resourceType);
-            }catch (IllegalArgumentException ex){
-                log.warn("Unrecognized resourceType '{}', defaulting to RAW", resourceType);
-            }
-
-            NoteMedia noteMedia = new NoteMedia();
-            noteMedia.setId(idGenerateRepo.nextId());
-            noteMedia.setUrl(url);
-            noteMedia.setType(type);
-            noteMedia.setNotes(notes);
-
-            NoteMedia saved = mediaRepo.save(noteMedia);
-            log.info("Uploaded media sucessfully for note {}: {}", postID, url);
-            return saved;
-        }catch (FailedException e){
-            throw e;
+        MediaType type = MediaType.RAW;
+        try {
+            type = MediaType.valueOf(resourceType.toUpperCase());
         }catch (Exception e) {
-            log.error("Failed to upload file '{}' for note {}: {}",
-                    file.getOriginalFilename(), postID, e);
-            throw new SystemException("Failed to upload media: ", e);
+            log.warn("Unknown resource type: {}", resourceType);
         }
+
+        NoteMedia noteMedia = new NoteMedia();
+        noteMedia.setId(idGenerateRepo.nextId());
+        noteMedia.setUrl(url);
+        noteMedia.setType(type);
+        noteMedia.setNotes(notes);
+
+        mediaRepo.save(noteMedia);
     }
+//    public NoteMedia uploadMedia(MediaNoteRequest mediaNoteRequest, UUID postID){
+//        MultipartFile file = mediaNoteRequest.getFile();
+//
+//        //Check file input
+//        if (file == null || file.isEmpty()){
+//            throw new FailedException("File is empty!");
+//        }
+//
+//        //File size limit
+//        if (file.getSize() > 50 * 1024 * 1024){
+//            throw new FailedException("File too large!");
+//        }
+//
+//        //Check for valid file types
+//        validateFileType(file);
+//
+//        Notes notes = notesRepo.findById(postID)
+//                .orElseThrow(() -> new FailedException("Post doesn't exist!"));
+//
+//        try{
+//            log.info("Uploading file '{}' ({} bytes) for note {} ", file.getOriginalFilename(), file.getSize(), postID);
+//
+//            //Upload with retry 3 times
+//            Map<String, Object> uploadResult = uploadRetry(file, 3);
+//            String url = (String) uploadResult.get("secure_url");
+//            String resourceType = ((String) uploadResult.get("resource_type")).toUpperCase();
+//            MediaType type = MediaType.RAW;
+//
+//            try{
+//                type = MediaType.valueOf(resourceType);
+//            }catch (IllegalArgumentException ex){
+//                log.warn("Unrecognized resourceType '{}', defaulting to RAW", resourceType);
+//            }
+//
+//            NoteMedia noteMedia = new NoteMedia();
+//            noteMedia.setId(idGenerateRepo.nextId());
+//            noteMedia.setUrl(url);
+//            noteMedia.setType(type);
+//            noteMedia.setNotes(notes);
+//
+//            NoteMedia saved = mediaRepo.save(noteMedia);
+//            log.info("Uploaded media sucessfully for note {}: {}", postID, url);
+//            return saved;
+//        }catch (FailedException e){
+//            throw e;
+//        }catch (Exception e) {
+//            log.error("Failed to upload file '{}' for note {}: {}",
+//                    file.getOriginalFilename(), postID, e);
+//            throw new SystemException("Failed to upload media: ", e);
+//        }
+//    }
 
     //Logic define kind of media upload
     private void validateFileType(MultipartFile file){
@@ -95,8 +114,15 @@ public class MediaNoteService {
         }
 
         contentType = contentType.toUpperCase();
+        long size = file.getSize();
 
-        if(!contentType.startsWith("IMAGE/") && !contentType.startsWith("VIDEO") && !contentType.startsWith("AUDIO")){
+        if(contentType.startsWith("IMAGE/")) {
+            if (size > 10 * 1024 * 1024) throw new FailedException("Images must not exceed 10MB!");
+        } else if (!contentType.startsWith("VIDEO")){
+            if (size > 50 * 1024 * 1024) throw new FailedException("Videos must not exceed 50MB!");
+        } else if (!contentType.startsWith("AUDIO") || contentType.equals("APPLICATION/OCTET-STREAM")) {
+            if (size > 20 * 1024 * 1024) throw new FailedException("Audio recordings must not exceed 20MB!");
+        }else{
             throw new FailedException("Invalid file type! Only image, video or audio are allowed!");
         }
     }
