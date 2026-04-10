@@ -165,3 +165,12 @@ jobs:
       - name: Shutdown
         if: always()
         run: docker compose down
+
+  deploy:
+    needs: build-and-test #Run only after the Integration test is successful
+    if: github.ref == 'refs/heads/main' # Chỉ deploy khi code đã merge vào main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Dokploy Webhook
+        run: |
+          curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
