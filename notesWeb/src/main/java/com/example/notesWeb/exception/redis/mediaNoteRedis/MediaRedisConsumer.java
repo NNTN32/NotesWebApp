@@ -49,9 +49,8 @@ public class MediaRedisConsumer extends RedisStreamConsume {
         try{
             Map<Object, Object> map = recordMedia.getValue();
             UUID postID = UUID.fromString(map.get("postID").toString());
-            String tempUrl = map.get("tempUrl").toString();
-            String fileName = map.get("fileName").toString();
-            String contentType = map.get("contentType").toString();
+            String finalUrl = map.get("finalUrl").toString();
+            String resourceType = map.get("resourceType").toString();
             String requestId = map.get("requestId").toString();
 
             String idempotentKey = "media:req:" + requestId;
@@ -68,31 +67,15 @@ public class MediaRedisConsumer extends RedisStreamConsume {
             }
 
             try{
-                log.info("Processing media message {} for post {}", recordId, postID);
+                log.info("Saving metadata to DB for post {}", recordId, postID);
 
-                //Reload file from Cloudinary temp URL
-                try (InputStream inputStream = openCloudinaryStream(tempUrl)){
-                    MockMultipartFile multipartFile = new MockMultipartFile(
-                            "file", fileName, contentType, inputStream
-                    );
+                mediaNoteService.saveMediaMetadata(postID, finalUrl, resourceType);
 
-                    mediaNoteService.uploadMedia(new MediaNoteRequest(multipartFile), postID);
+                redisTemplate.opsForValue().set(idempotentKey, "DONE", Duration.ofHours(1));
 
-                    redisTemplate.opsForValue().set(idempotentKey, "DONE", Duration.ofHours(1));
+                redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
 
-                    redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
-
-                    log.info("Media uploaded for post {}", postID);
-
-                }catch (FailedException e) {
-                    //business logic fail -> ack (delete msg caching)
-                    redisTemplate.opsForStream().acknowledge(key_STREAM, media_GROUP, recordMedia.getId());
-
-                }catch (SystemException e) {
-                    //system fail (db down, cloudinary timeout) -> retry -> release lock
-                    redisTemplate.delete(idempotentKey);
-                    throw e;
-                }
+                log.info("Media uploaded for post {}", postID);
             } catch (Exception e) {
                 //poison message -> ack -> release lock
                 redisTemplate.delete(idempotentKey);

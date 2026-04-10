@@ -3,7 +3,9 @@ package com.example.notesWeb.config;
 import com.example.notesWeb.model.Role;
 import com.example.notesWeb.model.User;
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +14,11 @@ import java.util.Date;
 import java.util.function.Function;
 
 @Component
+@Slf4j
 public class jwtProvider {
+    public static final String claim_Role = "role";
+    public static final String claim_Type = "type"; //distinction access & refresh
+
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -21,50 +27,73 @@ public class jwtProvider {
 
     //Create secret key for jwt
     private SecretKey getSignKey(){
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        //Base64 decoding for key secrets
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        return Keys.hmacShaKeyFor(keyBytes);
     }
 
-    //Generate Token
+    //Generate access Token
     public String generateToken(User user){
         Date now = new Date();
         //Setting time token expired
-        Date expiredDate = new Date(now.getTime() + jwtExpiration);
+        Date expiredDate = new Date(System.currentTimeMillis() + jwtExpiration);
 
         //return role user + token byte
         return Jwts.builder()
                 .subject(user.getUsername())
-                .claim("Role:", user.getRole().name())
+                //Consistent key "role"
+                .claim(claim_Role, user.getRole().name())
+                .claim(claim_Type, "Access")
                 .issuedAt(now)
                 .expiration(expiredDate)
-                .signWith(getSignKey(), SignatureAlgorithm.HS256)
+                .signWith(getSignKey())
+                .compact();
+    }
+
+    //generate for rotation secret
+    public String generateRSToken (User user) {
+        Date expiredRefresh = new Date();
+        Date trackingTime = new Date(System.currentTimeMillis() + 604800000);
+
+        return Jwts.builder()
+                .subject(user.getUsername())
+                .claim(claim_Type, "Rotation")
+                .issuedAt(expiredRefresh)
+                .expiration(trackingTime)
+                .signWith(getSignKey())
                 .compact();
     }
 
     //Refresh token
-    public String refreshToken(String oldToken) {
-        if(!validateToken(oldToken)) {
-            throw new IllegalArgumentException("Cannot refresh invalid or expired token");
-        }
-
-        String userName = getUserFromJwt(oldToken);
-        String role = getRoleFromJwt(oldToken);
-
-        User user = new User();
-        user.setUsername(userName);
-        user.setRole(Role.valueOf(role));
-
-        return generateToken(user);
-    }
+//    public String refreshToken(String oldToken) {
+//        if(!validateToken(oldToken)) {
+//            throw new IllegalArgumentException("Cannot refresh invalid or expired token");
+//        }
+//
+//        String userName = getUserFromJwt(oldToken);
+//        String role = getRoleFromJwt(oldToken);
+//
+//        User user = new User();
+//        user.setUsername(userName);
+//        user.setRole(Role.valueOf(role));
+//
+//        return generateToken(user);
+//    }
 
     //Claim token type "String"
     public Claims extractAllClaims(String token){
         try{
-            JwtParser parser = Jwts.parser()
-                    .setSigningKey(getSignKey())
-                    .build();
-            return parser.parseClaimsJws(token).getBody();
-        }catch (Exception ex){
-            throw new IllegalArgumentException("Invalid Token");
+            //using getPayload to retrieve Claims directly
+            return Jwts.parser()
+                    .verifyWith(getSignKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        }catch (ExpiredJwtException e){
+            //If token expired, it still could claim to refresh
+            return e.getClaims();
+        }catch (Exception exception) {
+            throw new IllegalArgumentException("Invalid token");
         }
     }
 
@@ -80,7 +109,9 @@ public class jwtProvider {
     }
 
     //Get object "role" to jwt
-    public String getRoleFromJwt(String token) { return extractClaim(token, claims -> claims.get("Role:", String.class));}
+    public String getRoleFromJwt(String token) {
+        return extractClaim(token, claims -> claims.get(claim_Role, String.class));
+    }
 
 
     //Check time token validate
@@ -92,12 +123,15 @@ public class jwtProvider {
     //Check token validate
     public boolean validateToken(String token){
         try{
-            String username = getUserFromJwt(token);
-            return (username != null && !isTokenExpired(token));
-        }catch (Exception e){
-            System.out.println("Token validation failed: " + e.getMessage());
-            return false;
-        }
+//            String username = getUserFromJwt(token);
+//            return (username != null && !isTokenExpired(token));
+            Jwts.parser().verifyWith(getSignKey()).build()
+                    .parseSignedClaims(token);
+            return true;
+        }catch (ExpiredJwtException e){
+            log.warn("Token expired");
+        }catch (Exception e) {
+            log.error("Token invalid");
+        }return false;
     }
-
 }

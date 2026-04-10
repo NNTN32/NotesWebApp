@@ -8,6 +8,8 @@ import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.todoLists.TaskListService;
 import com.example.notesWeb.service.todoLists.TodoListService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +36,8 @@ public class ListController {
     private TaskListService taskListService;
 
     //API Call back logic create To do lists
+    @Operation(summary = "User create list todo")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/createList")
     public ResponseEntity<?> create(
             @RequestHeader("Authorization") String authoHeader,
@@ -64,6 +68,8 @@ public class ListController {
     }
 
     //API Call back logic update state to do lists
+    @Operation(summary = "User updated state todo list")
+    @SecurityRequirement(name = "bearerAuth")
     @PutMapping("/update/{todoID}")
     public ResponseEntity<?> updateLists(
             @PathVariable UUID todoID,
@@ -94,6 +100,7 @@ public class ListController {
     }
 
     //API Get List to do of user
+    @Operation(summary = "User get their own todo lists")
     @GetMapping("/listUser/{userId}")
     public ResponseEntity<?> getList(@PathVariable UUID userId){
         try{
@@ -105,6 +112,7 @@ public class ListController {
     }
 
     //API Delete list to do of user
+    @Operation(summary = "User delete their own todo lists")
     @DeleteMapping("/delete/{idList}")
     public ResponseEntity<?> deleteList(@PathVariable UUID idList, @RequestParam UUID idUser){
         try{
@@ -120,6 +128,8 @@ public class ListController {
     }
 
     //API Update to do lists of user
+    @Operation(summary = "User updated todo list")
+    @SecurityRequirement(name = "bearerAuth")
     @PutMapping("/listUpdate/{idList}")
     public ResponseEntity<?> updated(
             @PathVariable UUID idList,

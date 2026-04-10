@@ -25,13 +25,14 @@ public class ReminderQueueConsume {
                 .orElse(null);
 
         //Cancel if have remain todo
-        if (todo == null || todo.getReminded()) return;
+        if (todo == null || todo.getReminded() || todo.getState() == State.SENT) return;
 
-        if(todo.getState() != State.PENDING) {
+        if(todo.getState() != State.QUEUE && todo.getState() != State.PENDING) {
             log.info("Skip duplicate reminder {}", todo.getIdList());
             return;
         }
 
+        //Sent notify through on Websocket
         notifyRepo.notify(todo);
         todo.setState(State.SENT);
         todo.setReminded(true);

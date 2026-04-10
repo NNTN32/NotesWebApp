@@ -2,6 +2,12 @@ spring:
   application:
     name: notesWeb
 
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 110MB
+      file-size-threshold: 2KB #Large files will be temporarily saved to the hard drive instead of being kept in RAM
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/NoteApp}
     username: ${DB_USERNAME:postgres}
@@ -59,13 +65,21 @@ spring:
     serialization:
       # Avoid date formatting errors when sending data Kafka/Swagger.
       write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+    time-zone: UTC
+    default-property-inclusion: non_null
 
 server:
   port: ${SERVER_PORT:8081}
 
   #expired time for timeout server
   tomcat:
-    connection-timeout: 20000
+    threads:
+      max: 1000
+      min-spare: 100
+    connection-timeout: 60000
 
 jwt:
   secret: ${JWT_SECRET:your_default_secret_for_dev_only}

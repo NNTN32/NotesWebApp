@@ -6,13 +6,20 @@ import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.exception.realtime.timeEvent.receiveMessage.ReminderService;
 import com.example.notesWeb.exception.realtime.timeEvent.receiveMessage.ReminderScheduler;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.*;
+import java.time.format.DateTimeParseException;
 import java.util.UUID;
 
 @RestController
@@ -24,43 +31,45 @@ public class ReminderController {
     private final jwtProvider jwtProvider;
     private final UserRepo userRepo;
 
+    @Operation(summary = "User set deadline time todo list")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/set-time/{idListTodo}")
     public ResponseEntity<?> setDeadlineReminder(
-            @RequestHeader("Authorization") String authorHeader,
+            @RequestHeader(value = "X-TimeZone", required = false, defaultValue = "UTC") String timezone,
+//            @RequestHeader("Authorization") String authorHeader,
+            Authentication authentication,
             @PathVariable UUID idListTodo,
             @RequestParam String time,
             @RequestParam String reminder
     ) {
         try {
-            if (authorHeader == null || !authorHeader.startsWith("Bearer ")) {
+            if (authentication == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body("Authorization header is missing or invalid.");
             }
 
-            String token = authorHeader.substring(7);
-
-            // Check token expiration
-            if (jwtProvider.isTokenExpired(token)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body("Token expired. Please login again.");
-            }
-
             // Get username from JWT
-            String username = jwtProvider.getUserFromJwt(token);
+            String username = authentication.getName();
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
             //Convert Duration
-            Duration duration = Duration.parse(reminder);
+            Duration duration;
+            try {
+                duration = Duration.parse(reminder);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body("Invalid reminder format!");
+            }
 
             // Callback logic service
-            ListTodo updated = reminderService.setDeadlineByPresent(idListTodo, time, duration, username);
+            ListTodo updated = reminderService.setDeadlineByPresent(idListTodo, time, duration, timezone, username);
 
             return ResponseEntity.ok(updated);
 
-        } catch (UsernameNotFoundException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.badRequest().body("Wrong type input timezone");
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }

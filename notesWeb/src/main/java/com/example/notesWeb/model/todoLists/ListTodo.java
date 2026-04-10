@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Data
 @Entity
-@Table(name = "toDo")
+@Table(name = "toDo", indexes = {@Index(name = "id_Todo", columnList = "trigger_at, state")})
 public class ListTodo {
     @Id
 //    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
@@ -21,19 +21,23 @@ public class ListTodo {
     @Column(columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID idList;
 
-    @Column(length = 100000, nullable = false)
+    @Column(length = 255, nullable = false)
     private String heading;
 
-    @Column(length = 100000)
+    @Column(columnDefinition = "TEXT")
     private String purport;
 
+    @Version
+    private Long version;
+
     @CreationTimestamp
-    private LocalDateTime createdAt;
+    @Column(updatable = false)
+    private Instant createdAt;
 
     @UpdateTimestamp
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
-    private LocalDateTime deadlineTime;
+    private Instant deadlineTime;
 
     private Long reminderTime;
 
@@ -43,7 +47,7 @@ public class ListTodo {
     private Instant triggerAt;
 
     @Enumerated(EnumType.STRING)
-    private State state;
+    private State state = State.PENDING;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

@@ -9,12 +9,16 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.takeNotes.MediaNoteService;
 import com.example.notesWeb.service.takeNotes.TaskMediaService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -37,14 +41,15 @@ public class MediaNoteController {
     private MediaRedisProducer mediaRedisProducer;
 
     //API Handle Uploaded Media Notes
-    @PostMapping("/uploads/{postID}")
+    @Operation(summary = "User uploaded file media on Notes")
+    @SecurityRequirement(name = "bearerAuth")
+    @PostMapping(value = "/uploads/{postID}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upload(
             @PathVariable UUID postID,
             @RequestHeader("Authorization") String authorHeader,
-            //Use ModelAttribute make automatically bind all form data to the DTO object (easy maintain).
-            //Only user RequestParam to upload only one file without metadata
-            @ModelAttribute MediaNoteRequest mediaNoteRequest
+            @RequestPart("file")MultipartFile file
     ){
+        MediaNoteRequest mediaNoteRequest = new MediaNoteRequest(file);
         try{
 
             //Check token make sure can get info of user
@@ -65,7 +70,7 @@ public class MediaNoteController {
             User user = userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
-            mediaRedisProducer.sendMediaRequest(username, postID, mediaNoteRequest.getFile());
+            mediaRedisProducer.sendMediaRequest(username, postID, file);
             return ResponseEntity.accepted().body("Upload accepted");
 
         }catch (IllegalArgumentException e){
@@ -74,6 +79,7 @@ public class MediaNoteController {
     }
 
     //API Handle Delete MediaNote
+    @Operation(summary = "User deleted file media on Notes")
     @DeleteMapping("/delete/{mediaID}")
     public ResponseEntity<?> deleteNotesFile(@PathVariable UUID mediaID, @RequestParam UUID noteId){
         try{

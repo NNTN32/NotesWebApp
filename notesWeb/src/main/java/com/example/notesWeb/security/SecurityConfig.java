@@ -34,7 +34,7 @@ public class SecurityConfig {
                 })
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
-                                "/api/auth/register","/api/auth/login","/api/auth/login/result/{sessionId}",
+                                "/api/auth/register","/api/auth/login","/api/auth/login/result/{sessionId}","/api/auth/refresh",
                                 "/notes/creates",
                                 "/notes/listNotes/{userID}",
                                 "/notes/{noteID}",
@@ -51,7 +51,12 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/api/auth/**",
+                                "/notes/**",
+                                "/media/**",
+                                "/todo/**",
+                                "/reminder/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

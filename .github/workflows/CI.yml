@@ -1,0 +1,176 @@
+name: Build & Integration Test Notes App
+
+on:
+  push:
+    branches: [ "main", "feature/**" ]
+  
+  #Check code before merge to main
+  pull_request:
+    branches: [ "main" ]
+
+
+#Automatically discard old builds when new commits are made on the same branch
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: ./notesWeb
+        
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven' #Caching Maven dependencies for faster builds
+
+      #Ensure the Maven script has execute permissions
+      - name: Make mvnw executable
+        run: chmod +x ./mvnw
+      - name: Run Unit Tests
+        run: ./mvnw test -Dtest=!*IntegrationTest,!NotesWebApplicationTests -Dsurefire.failIfNoSpecifiedTests=false -B
+      - name: Upload Unit Test Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-reports
+          path: ./notesWeb/target/surefire-reports/
+      - name: Build with Maven
+        run: ./mvnw clean package -DskipTests -B
+
+      #Manage Docker Tags
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/notes-app
+          tags: |
+            type=sha,format=long
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+      - name: Set up Multi-platform Build
+        uses: docker/setup-qemu-action@v3
+
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3 #Optimize -> use for managing build images and caching
+
+      - name: Login DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and Push SHA Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./notesWeb
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }} #Auto get tags from step docker meta
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Start Services & Integration Test
+        env:
+        # App
+         DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+
+        # Database
+         DB_URL: jdbc:postgresql://localhost:5433/NoteApp
+         DB_USERNAME: ${{ secrets.DB_USERNAME }}
+         DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+        # JWT
+         JWT_SECRET: ${{ secrets.JWT_SECRET }}
+         JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
+
+        # Redis
+         REDIS_HOST: localhost
+         REDIS_PORT: ${{ secrets.REDIS_PORT }}
+
+        # Kafka
+         KAFKA_BOOTSTRAP_SERVERS: localhost:9095
+
+        # RabbitMQ
+         RABBIT_HOST: localhost
+         RABBIT_PORT: ${{ secrets.RABBIT_PORT }}
+         RABBIT_USERNAME: ${{ secrets.RABBIT_USERNAME }}
+         RABBIT_PASSWORD: ${{ secrets.RABBIT_PASSWORD }}
+         RABBIT_STOMP_PORT: ${{ secrets.RABBIT_STOMP_PORT }}
+
+        # Cloudinary
+         CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+         CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+         CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+
+        # Image version
+         APP_VERSION: ${{ github.sha }}
+
+        run: |
+          docker compose up -d 
+          echo "Checking container status!"
+          docker compose ps 
+          
+          echo "Waiting for service to be healthy..."
+          sudo apt-get update && sudo apt-get install -y netcat-openbsd
+
+          echo "Waiting for Infrastructure ports"
+          timeout 60s bash -c "until nc -z localhost 5433; do echo 'Waiting for database...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 6380; do echo 'Waiting for Redis...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 9095; do echo 'Waiting for Kafka...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 5673; do echo 'Waiting for RabbitMQ...'; sleep 1; done"
+          timeout 60s bash -c "until nc -z localhost 61614; do echo 'Waiting for STOMP...'; sleep 1; done"
+
+          #Loop check Swagger
+          echo "Infrastructure is up. Checking App Swagger..."
+          HEALTHY=false
+          for i in {1..20}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/v3/api-docs | grep -q "200"; then
+              echo "Swagger is up & running!"
+              HEALTHY=true
+              break
+            fi
+            echo "Waiting for api.. ($i/20)"
+            sleep 5
+          done
+          
+          if [ "$HEALTHY" = false ]; then
+            echo "Service failed!"
+            docker compose logs 
+            exit 1
+          fi
+
+          echo "Running JUnit Integration Tests..."
+          ./mvnw test -Dtest=*IntegrationTest,NotesWebApplicationTests -Dspring.profiles.active=test -B -e
+
+      - name: Upload Integration Test Reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-reports
+          path: ./notesWeb/target/surefire-reports/
+      - name: Promote Image to Branch Tag
+        if: success() && github.ref == 'refs/heads/main'
+        run: echo "Code is stable on main. Image with 'latest' tag is ready!"
+
+      - name: Shutdown
+        if: always()
+        run: docker compose down
+
+  deploy:
+    needs: build-and-test #Run only after the Integration test is successful
+    if: github.ref == 'refs/heads/main' # Chỉ deploy khi code đã merge vào main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Dokploy Webhook
+        run: |
+          curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"

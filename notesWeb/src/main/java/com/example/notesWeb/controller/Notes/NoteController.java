@@ -11,6 +11,8 @@ import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -43,6 +45,8 @@ public class NoteController {
     private NoteRedisProducer noteRedisProducer;
 
     //API Handle Create Notes
+    @Operation(summary = "User create notes")
+    @SecurityRequirement(name = "bearerAuth")
     @PostMapping("/creates")
     public ResponseEntity<?>create(
             @RequestHeader("Authorization") String authorHeader,
@@ -78,6 +82,7 @@ public class NoteController {
     }
 
     //API Handle Get List Notes
+    @Operation(summary = "Get all list notes of user")
     @GetMapping("/listNotes/{userID}")
     public ResponseEntity<?> getAllNotesBasedUser(@PathVariable UUID userID){
         //Calling back logic get all list notes from service class
@@ -90,6 +95,7 @@ public class NoteController {
     }
 
     //API Handle Get List NotesID
+    @Operation(summary = "Get id of notes")
     @GetMapping("/{noteID}")
     public ResponseEntity<?> getNoteByID(@PathVariable UUID noteID) {
         try {
@@ -105,6 +111,7 @@ public class NoteController {
     }
 
     //API Handle Delete Notes By User
+    @Operation(summary = "The user deleted the proprietary note")
     @DeleteMapping("/delete/{noteID}")
     public ResponseEntity<?> deleteNote(@PathVariable UUID noteID, @RequestParam UUID userID){
         try{
@@ -120,6 +127,8 @@ public class NoteController {
     }
 
     //API Handle Update Notes By User
+    @Operation(summary = "Users receive exclusive updates to their notes")
+    @SecurityRequirement(name = "bearerAuth")
     @PutMapping("/update/{noteID}")
     public ResponseEntity<?>updateNotes(
             @PathVariable UUID noteID,
