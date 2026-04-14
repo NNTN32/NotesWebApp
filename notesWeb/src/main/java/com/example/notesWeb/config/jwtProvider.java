@@ -25,6 +25,9 @@ public class jwtProvider {
     @Value("${jwt.expiration}")
     private long jwtExpiration;
 
+    @Value("${jwt.refresh}")
+    private Long jwtRefresh;
+
     //Create secret key for jwt
     private SecretKey getSignKey(){
         //Base64 decoding for key secrets
@@ -53,7 +56,7 @@ public class jwtProvider {
     //generate for rotation secret
     public String generateRSToken (User user) {
         Date expiredRefresh = new Date();
-        Date trackingTime = new Date(System.currentTimeMillis() + 604800000);
+        Date trackingTime = new Date(System.currentTimeMillis() + jwtRefresh);
 
         return Jwts.builder()
                 .subject(user.getUsername())
@@ -63,22 +66,6 @@ public class jwtProvider {
                 .signWith(getSignKey())
                 .compact();
     }
-
-    //Refresh token
-//    public String refreshToken(String oldToken) {
-//        if(!validateToken(oldToken)) {
-//            throw new IllegalArgumentException("Cannot refresh invalid or expired token");
-//        }
-//
-//        String userName = getUserFromJwt(oldToken);
-//        String role = getRoleFromJwt(oldToken);
-//
-//        User user = new User();
-//        user.setUsername(userName);
-//        user.setRole(Role.valueOf(role));
-//
-//        return generateToken(user);
-//    }
 
     //Claim token type "String"
     public Claims extractAllClaims(String token){
@@ -123,8 +110,6 @@ public class jwtProvider {
     //Check token validate
     public boolean validateToken(String token){
         try{
-//            String username = getUserFromJwt(token);
-//            return (username != null && !isTokenExpired(token));
             Jwts.parser().verifyWith(getSignKey()).build()
                     .parseSignedClaims(token);
             return true;
@@ -133,5 +118,10 @@ public class jwtProvider {
         }catch (Exception e) {
             log.error("Token invalid");
         }return false;
+    }
+
+    public long getRemainingTime(String token) {
+        Date expiration = extractClaim(token, Claims::getExpiration);
+        return Math.max(0, expiration.getTime() - System.currentTimeMillis());
     }
 }

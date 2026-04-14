@@ -37,6 +37,17 @@ public class AuthController {
     @Value("${app.secure-cookie:false}")
     private boolean secureCookie;
 
+    private void addRotationCookie(HttpServletResponse response, String rotationSecret) {
+        ResponseCookie cookie = ResponseCookie.from("rotation_secret", rotationSecret)
+                .httpOnly(true)
+                .secure(secureCookie)
+                .path("/")
+                .maxAge(604800)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
     //Api Handle Register
     @Operation(summary = "User Register")
     @PostMapping("/register")
@@ -121,14 +132,7 @@ public class AuthController {
             AuthResponse result = authService.refresh(oldrs);
 
             //Overwrite the new RS into the HttpOnly Cookie
-            ResponseCookie responseCookie = ResponseCookie.from("rotation_secret", result.getRotationSecret())
-                    .httpOnly(true)
-                    .secure(secureCookie)
-                    .path("/")
-                    .maxAge(604800)
-                    .sameSite("Lax")
-                    .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, responseCookie.toString());
+            addRotationCookie(response, result.getRotationSecret());
             return ResponseEntity.ok(Map.of("accessToken", result.getToken(),"status", "SUCCESS"));
         } catch (FailedException e) {
             //If an error occurs, delete the client-side cookies immediately

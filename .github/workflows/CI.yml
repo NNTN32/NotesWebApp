@@ -92,6 +92,7 @@ jobs:
         # JWT
          JWT_SECRET: ${{ secrets.JWT_SECRET }}
          JWT_EXPIRATION: ${{ secrets.JWT_EXPIRATION }}
+         JWT_REFRESH: ${{ secrets.JWT_REFRESH }}
 
         # Redis
          REDIS_HOST: localhost

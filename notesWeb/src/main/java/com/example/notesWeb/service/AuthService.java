@@ -8,6 +8,7 @@ import com.example.notesWeb.model.Status;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.repository.IdGenerateRepo;
 import com.example.notesWeb.repository.UserRepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,6 +39,13 @@ public class AuthService {
 
     private final RedisTemplate<String, Object> redisTemplate;
 
+    private final ObjectMapper objectMapper;
+
+    //Unified Key Generator
+    private String getSessionKey (String userName, String rs) {
+        return "session:" + userName + ":" + rs;
+    }
+
     //Logic handle request register user
     public String register(AuthRequest authRequest){
         if(userRepo.existsByUsername(authRequest.getUsername())){
@@ -66,9 +74,26 @@ public class AuthService {
             throw new FailedException("Invalid password");
         }
 
+        String usernameKey = user.getUsername();
+        try {
+            String patternKey = "session:" + usernameKey + ":*";
+            Set<String> existingKeys = redisTemplate.keys(patternKey);
+            if (existingKeys != null && !existingKeys.isEmpty()) {
+                log.info("Cleaning up {} ghost sessions for user: {}", existingKeys.size(), usernameKey);
+                redisTemplate.delete(existingKeys);
+            }
+
+            Set<String> graceKeys = redisTemplate.keys("grace:" + usernameKey + ":*");
+            if (graceKeys != null && !graceKeys.isEmpty()) {
+                redisTemplate.delete(graceKeys);
+            }
+        } catch (Exception e) {
+            log.error("Failed to cleanup ghost sessions for user: {}", usernameKey, e);
+        }
+
         String token = tokenProvider.generateToken(user);
         String rs = tokenProvider.generateRSToken(user);
-        redisTemplate.opsForValue().set("session:" + user.getUsername() + ":" + rs, "Active", Duration.ofDays(7));
+        redisTemplate.opsForValue().set("session:" + user.getUsername() + ":" + rs, "Active", Duration.ofMillis(300000));
 
         return new AuthResponse(
                 token,
@@ -85,10 +110,23 @@ public class AuthService {
     public AuthResponse refresh (String oldRS) {
         //get user from RS (even rs has expired from jwt)
         String username = tokenProvider.getUserFromJwt(oldRS);
+        String sessionKey = getSessionKey(username, oldRS);
+        String graceKey = "grace:" + username + ":" + oldRS;
+
+        //Check request time input
+        String cachedResponse = (String) redisTemplate.opsForValue().get(graceKey);
+        if (cachedResponse != null) {
+            log.info("Serving from grace period for user: {}", username);
+            try {
+                //return result from first request
+                return objectMapper.readValue(cachedResponse, AuthResponse.class);
+            } catch (Exception e) {
+                log.error("Error parsing grace session", e);
+            }
+        }
 
         //find rs in Redis
-        String redisKeyPattern = "session:" + username + ":" + oldRS;
-        if (Boolean.FALSE.equals(redisTemplate.hasKey(redisKeyPattern))) {
+        if (Boolean.FALSE.equals(redisTemplate.hasKey(sessionKey))) {
             //If the RS has a valid signature & it's NOT in Redis
             log.error("Suspected hacking! reuse for user: {}", username);
 
@@ -100,18 +138,22 @@ public class AuthService {
             throw new FailedException("Security alert : All session revoked. Please login again!");
         }
 
-        //If valid -> DELETE old RS IMMEDIATELY (One-time use)
-        redisTemplate.delete(redisKeyPattern);
-
         //Reborn new access token & rotation secret(refresh token)
         User user = userRepo.findByUsername(username)
                 .orElseThrow(() -> new FailedException("User not found!"));
         String newAccessToken = tokenProvider.generateToken(user);
         String newRS = tokenProvider.generateRSToken(user);
-        //Save rs into Redis (TTL 7 days)
-        String  newRedisKey = "session:" + username + ":" + newRS;
-        redisTemplate.opsForValue().set(newRedisKey, "Active", Duration.ofDays(7));
+        AuthResponse response = new AuthResponse(newAccessToken, newRS, user.getId(), user.getUsername(), user.getRole(), Status.SUCCESS, "Token rotated");
 
-        return new AuthResponse(newAccessToken, newRS, user.getId(), user.getUsername(), user.getRole(), Status.SUCCESS, "Token rotated");
+        //Save rs into Redis
+        redisTemplate.opsForValue().set(getSessionKey(username, response.getRotationSecret()), "Active", Duration.ofMillis(300000)); //5min TTL of RS on Redis
+        //convert old rs to grace state (30-second grace period)
+        try {
+            redisTemplate.opsForValue().set(graceKey, objectMapper.writeValueAsString(response), Duration.ofSeconds(30));
+        } catch (Exception e) {
+            log.error("Failed to set grace period", e);
+        }
+        redisTemplate.delete(sessionKey);
+        return response;
     }
 }
