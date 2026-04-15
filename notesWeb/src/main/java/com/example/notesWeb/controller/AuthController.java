@@ -145,4 +145,24 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal error");
         }
     }
+
+    @Operation(summary = "User logout")
+    @PostMapping("/logout")
+    public ResponseEntity<?> logOut (@CookieValue(name = "rotation_secret", required = false) String oldRs,
+                                     HttpServletResponse response) {
+        if (oldRs != null && !oldRs.isEmpty()) {
+            authService.logOut(oldRs);
+        }
+        ResponseCookie deleteCookie  = ResponseCookie.from("rotation_secret", "")
+                .httpOnly(true)
+                .secure(secureCookie)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
+
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Logged out successfully. See you again!"));
+    }
 }

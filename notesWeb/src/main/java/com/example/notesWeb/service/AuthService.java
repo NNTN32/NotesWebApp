@@ -156,4 +156,17 @@ public class AuthService {
         redisTemplate.delete(sessionKey);
         return response;
     }
+
+    public void logOut (String oldRs) {
+        try {
+            String userName = tokenProvider.getUserFromJwt(oldRs);
+            String sessionKey = getSessionKey(userName, oldRs);
+            String graceKey = "grace:" + userName + ":" + oldRs;
+            redisTemplate.delete(sessionKey);
+            redisTemplate.delete(graceKey);
+            log.info("User {} logged out !",userName);
+        } catch (Exception e) {
+            log.error("Logout error: {}", e.getMessage());
+        }
+    }
 }
