@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Component
@@ -18,12 +19,16 @@ import java.util.function.Function;
 public class jwtProvider {
     public static final String claim_Role = "role";
     public static final String claim_Type = "type"; //distinction access & refresh
+    public static final String claim_Id = "userId";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
 
     @Value("${jwt.expiration}")
     private long jwtExpiration;
+
+    @Value("${jwt.refresh}")
+    private Long jwtRefresh;
 
     //Create secret key for jwt
     private SecretKey getSignKey(){
@@ -41,6 +46,7 @@ public class jwtProvider {
         //return role user + token byte
         return Jwts.builder()
                 .subject(user.getUsername())
+                .claim(claim_Id, user.getId().toString())
                 //Consistent key "role"
                 .claim(claim_Role, user.getRole().name())
                 .claim(claim_Type, "Access")
@@ -53,32 +59,18 @@ public class jwtProvider {
     //generate for rotation secret
     public String generateRSToken (User user) {
         Date expiredRefresh = new Date();
-        Date trackingTime = new Date(System.currentTimeMillis() + 604800000);
+        Date trackingTime = new Date(System.currentTimeMillis() + jwtRefresh);
 
         return Jwts.builder()
                 .subject(user.getUsername())
+                .claim(claim_Id, user.getId().toString())
+                .claim(claim_Role, user.getRole().name())
                 .claim(claim_Type, "Rotation")
                 .issuedAt(expiredRefresh)
                 .expiration(trackingTime)
                 .signWith(getSignKey())
                 .compact();
     }
-
-    //Refresh token
-//    public String refreshToken(String oldToken) {
-//        if(!validateToken(oldToken)) {
-//            throw new IllegalArgumentException("Cannot refresh invalid or expired token");
-//        }
-//
-//        String userName = getUserFromJwt(oldToken);
-//        String role = getRoleFromJwt(oldToken);
-//
-//        User user = new User();
-//        user.setUsername(userName);
-//        user.setRole(Role.valueOf(role));
-//
-//        return generateToken(user);
-//    }
 
     //Claim token type "String"
     public Claims extractAllClaims(String token){
@@ -108,6 +100,12 @@ public class jwtProvider {
         return extractClaim(token, Claims::getSubject);
     }
 
+    public UUID getUserIdFromJwt(String token) {
+        String idString = extractClaim(token, claims -> claims.get(claim_Id, String.class));
+        if (idString == null) return null; //Prevent bug NPE
+        return UUID.fromString(idString);
+    }
+
     //Get object "role" to jwt
     public String getRoleFromJwt(String token) {
         return extractClaim(token, claims -> claims.get(claim_Role, String.class));
@@ -123,8 +121,6 @@ public class jwtProvider {
     //Check token validate
     public boolean validateToken(String token){
         try{
-//            String username = getUserFromJwt(token);
-//            return (username != null && !isTokenExpired(token));
             Jwts.parser().verifyWith(getSignKey()).build()
                     .parseSignedClaims(token);
             return true;
@@ -133,5 +129,10 @@ public class jwtProvider {
         }catch (Exception e) {
             log.error("Token invalid");
         }return false;
+    }
+
+    public long getRemainingTime(String token) {
+        Date expiration = extractClaim(token, Claims::getExpiration);
+        return Math.max(0, expiration.getTime() - System.currentTimeMillis());
     }
 }

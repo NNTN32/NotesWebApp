@@ -2,12 +2,14 @@ package com.example.notesWeb.security;
 
 import com.example.notesWeb.config.jwtAuthenticationFilter;
 import com.example.notesWeb.config.jwtProvider;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -32,11 +34,11 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {
                 })
+                //Stateless configuration for JWT
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/auth/register","/api/auth/login","/api/auth/login/result/{sessionId}","/api/auth/refresh",
-                                "/notes/creates",
-                                "/notes/listNotes/{userID}",
+                        .requestMatchers("/notes/creates",
+                                "/notes/listNotes",
                                 "/notes/{noteID}",
                                 "/notes/delete/{noteID}",
                                 "/notes/update/{noteID}",
@@ -47,8 +49,9 @@ public class SecurityConfig {
                                 "/todo/listUser/{userId}",
                                 "/todo/delete/{idList}",
                                 "/todo/listUpdate/{idList}",
-                                "/reminder/set-time/{idListTodo}",
-                                "/ws/**",
+                                "/reminder/set-time/{idListTodo}"
+                        ).hasRole("USER")
+                        .requestMatchers("/ws/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
@@ -56,8 +59,7 @@ public class SecurityConfig {
                                 "/notes/**",
                                 "/media/**",
                                 "/todo/**",
-                                "/reminder/**"
-                        ).permitAll()
+                                "/reminder/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new jwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);

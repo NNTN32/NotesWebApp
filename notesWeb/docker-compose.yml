@@ -25,6 +25,7 @@ services:
 
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+      JWT_REFRESH: ${JWT_REFRESH}
 
       REDIS_HOST: notes-redis
       REDIS_PORT: 6379

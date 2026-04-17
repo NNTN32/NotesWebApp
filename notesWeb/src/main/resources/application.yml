@@ -84,6 +84,7 @@ server:
 jwt:
   secret: ${JWT_SECRET:your_default_secret_for_dev_only}
   expiration: ${JWT_EXPIRATION:86400000}
+  refresh: ${JWT_REFRESH:604800000}
 
 cloudinary:
   cloud_name: ${CLOUDINARY_CLOUD_NAME:}

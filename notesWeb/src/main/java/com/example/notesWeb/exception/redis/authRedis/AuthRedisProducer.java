@@ -30,7 +30,7 @@ public class AuthRedisProducer {
         System.out.println("Sending request to Redis Stream: " + data);
         redisTemplate.opsForStream()
                 .add(StreamRecords.newRecord()
-                        .in("auth:login:stream")
+                        .in(STREAM_KEY)
                         .ofMap(data));
     }
 

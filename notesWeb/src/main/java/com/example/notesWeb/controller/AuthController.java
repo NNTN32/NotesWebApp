@@ -37,6 +37,17 @@ public class AuthController {
     @Value("${app.secure-cookie:false}")
     private boolean secureCookie;
 
+    private void addRotationCookie(HttpServletResponse response, String rotationSecret) {
+        ResponseCookie cookie = ResponseCookie.from("rotation_secret", rotationSecret)
+                .httpOnly(true)
+                .secure(secureCookie)
+                .path("/")
+                .maxAge(604800)
+                .sameSite("Lax")
+                .build();
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
     //Api Handle Register
     @Operation(summary = "User Register")
     @PostMapping("/register")
@@ -121,14 +132,7 @@ public class AuthController {
             AuthResponse result = authService.refresh(oldrs);
 
             //Overwrite the new RS into the HttpOnly Cookie
-            ResponseCookie responseCookie = ResponseCookie.from("rotation_secret", result.getRotationSecret())
-                    .httpOnly(true)
-                    .secure(secureCookie)
-                    .path("/")
-                    .maxAge(604800)
-                    .sameSite("Lax")
-                    .build();
-            response.addHeader(HttpHeaders.SET_COOKIE, responseCookie.toString());
+            addRotationCookie(response, result.getRotationSecret());
             return ResponseEntity.ok(Map.of("accessToken", result.getToken(),"status", "SUCCESS"));
         } catch (FailedException e) {
             //If an error occurs, delete the client-side cookies immediately
@@ -140,5 +144,25 @@ public class AuthController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal error");
         }
+    }
+
+    @Operation(summary = "User logout")
+    @PostMapping("/logout")
+    public ResponseEntity<?> logOut (@CookieValue(name = "rotation_secret", required = false) String oldRs,
+                                     HttpServletResponse response) {
+        if (oldRs != null && !oldRs.isEmpty()) {
+            authService.logOut(oldRs);
+        }
+        ResponseCookie deleteCookie  = ResponseCookie.from("rotation_secret", "")
+                .httpOnly(true)
+                .secure(secureCookie)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
+
+        return ResponseEntity.ok(Map.of("status", "SUCCESS", "message", "Logged out successfully. See you again!"));
     }
 }

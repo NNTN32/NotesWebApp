@@ -53,61 +53,58 @@ public class AuthRedisConsumer extends RedisStreamConsume {
     @Override
     protected void handleMessage(MapRecord<String, Object, Object> record) {
         Map<Object, Object> r = record.getValue();
+        log.info("Raw record from Redis: {}", r);
 
         String username = (String) r.get("username");
         String password = (String) r.get("password");
         String sessionId = (String) r.get("sessionId");
 
-        String resultKey = "login:result:" + sessionId;
-        //Idempotent check
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(resultKey))) {
-            log.info("Login result already exists for session {}", sessionId);
+        if (username == null || password == null) {
+            log.error("Username or Password is missing in Redis Stream record ID: {}", record.getId());
             return;
         }
-
-        //Rate limit request
-        if (!limitRequestLogin.tryAcquire()) {
-            log.warn("Login rate limited {}", record.getId());
-
-            messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/queue/login-result",
-                    new AuthResponse(null, null, null, username, null, Status.FAIL, "Too many login attempts")
-            );
-            return;
-        }
-
         try {
             AuthResponse authResponse = authService.login(new AuthRequest(username, password, sessionId));
 
-            //initialization rotation secret
-            User user = userRepo.findByUsername(username).get();
-            String rs = jwtProvider.generateRSToken(user);
+            String resultKey = "login:result:" + sessionId;
+            //Idempotent check
+            if (Boolean.TRUE.equals(redisTemplate.hasKey(resultKey))) {
+                log.info("Login result already exists for session {}", sessionId);
+                return;
+            }
 
-            //Save to Redis to manage "Ghost Sessions"
-            String sessionKey = "session:" + username + ":" + UUID.randomUUID().toString().substring(0,8);
-            redisTemplate.opsForValue().set(sessionKey, rs, Duration.ofDays(7));
+            //Rate limit request
+            if (!limitRequestLogin.tryAcquire()) {
+                log.warn("Login rate limited {}", record.getId());
 
-            //Sent through websocket
-            messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/queue/login-result",
-                    authResponse
-            );
+                messagingTemplate.convertAndSendToUser(
+                        sessionId,
+                        "/queue/login-result",
+                        new AuthResponse(null, null, null, username, null, Status.FAIL, "Too many login attempts")
+                );
+                return;
+            }
+
             //Pass the result into a Hash for the Controller to extract
             redisTemplate.opsForHash().putAll(
                     resultKey,
                     Map.of(
                             "status", "SUCCESS",
                             "token", authResponse.getToken(),
-                            "rotationSecret", rs, //Return to Controller set Cookie
+                            "rotationSecret", authResponse.getRotationSecret(),
                             "id", String.valueOf(authResponse.getId()),
                             "role", String.valueOf(authResponse.getRole()),
                             "message", authResponse.getMessage()
                     )
             );
 
-            redisTemplate.expire(resultKey, Duration.ofMinutes(1));
+            redisTemplate.expire(resultKey, Duration.ofMinutes(2));
+            //Sent through websocket
+            messagingTemplate.convertAndSendToUser(
+                    sessionId,
+                    "/queue/login-result",
+                    authResponse
+            );
             //Catch same exception so it will log error for wrong password
             //Without discrimination auth fail & system fail
         }
