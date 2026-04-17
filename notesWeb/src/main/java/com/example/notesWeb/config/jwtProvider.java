@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Component
@@ -18,6 +19,7 @@ import java.util.function.Function;
 public class jwtProvider {
     public static final String claim_Role = "role";
     public static final String claim_Type = "type"; //distinction access & refresh
+    public static final String claim_Id = "userId";
 
     @Value("${jwt.secret}")
     private String jwtSecret;
@@ -44,6 +46,7 @@ public class jwtProvider {
         //return role user + token byte
         return Jwts.builder()
                 .subject(user.getUsername())
+                .claim(claim_Id, user.getId().toString())
                 //Consistent key "role"
                 .claim(claim_Role, user.getRole().name())
                 .claim(claim_Type, "Access")
@@ -60,6 +63,8 @@ public class jwtProvider {
 
         return Jwts.builder()
                 .subject(user.getUsername())
+                .claim(claim_Id, user.getId().toString())
+                .claim(claim_Role, user.getRole().name())
                 .claim(claim_Type, "Rotation")
                 .issuedAt(expiredRefresh)
                 .expiration(trackingTime)
@@ -93,6 +98,12 @@ public class jwtProvider {
     //Get object "user" to jwt
     public String getUserFromJwt(String token){
         return extractClaim(token, Claims::getSubject);
+    }
+
+    public UUID getUserIdFromJwt(String token) {
+        String idString = extractClaim(token, claims -> claims.get(claim_Id, String.class));
+        if (idString == null) return null; //Prevent bug NPE
+        return UUID.fromString(idString);
     }
 
     //Get object "role" to jwt

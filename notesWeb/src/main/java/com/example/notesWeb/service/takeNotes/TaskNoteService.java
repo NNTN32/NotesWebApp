@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -34,36 +35,25 @@ public class TaskNoteService {
     }
 
     //Logic get list NoteID
-    public List<NoteResponse> getListNoteID(UUID noteID) {
-        Notes note = notesRepo.findNoteId(noteID)
+    public NoteResponse getListNoteID(UUID noteID, UUID currentUserID) {
+        Notes note = notesRepo.findNoteId(noteID, currentUserID)
                 .orElseThrow(() -> new FailedException("Note doesn't exist! " + noteID));
 
-        List<NoteResponse> responseList = new ArrayList<>();
-
-        // Case if Notes have uploaded Media
-        if (note.getNoteMediaList() != null && !note.getNoteMediaList().isEmpty()) {
-            for (NoteMedia media : note.getNoteMediaList()) {
-                responseList.add(new NoteResponse(
-                        note.getTitle(),
-                        note.getContent(),
-                        media.getUrl()
-                ));
-            }
-        } else {
-            // Case if Notes have not uploaded Media yet
-            responseList.add(new NoteResponse(
-                    note.getTitle(),
-                    note.getContent(),
-                    null
-            ));
-        }
-
-        return responseList;
+        List<String> mediaUrls = (note.getNoteMediaList() == null) ? List.of() :
+                //Map through to class DTO by Java Stream
+                note.getNoteMediaList().stream()
+                        .map(NoteMedia::getUrl)
+                        .collect(Collectors.toList());
+        return NoteResponse.builder()
+                .title(note.getTitle())
+                .content(note.getContent())
+                .url(mediaUrls)
+                .build();
     }
 
     //Logic delete Post
     public void deleteNote(UUID noteID, UUID userID){
-        Notes note = notesRepo.findNoteId(noteID)
+        Notes note = notesRepo.findNoteId(noteID, userID)
                 .orElseThrow(() -> new IllegalArgumentException("Note doesn't exist! " + noteID));
 
         if (!note.getUser().getId().equals(userID)) {

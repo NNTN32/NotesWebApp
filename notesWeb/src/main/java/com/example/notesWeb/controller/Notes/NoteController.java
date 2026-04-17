@@ -1,5 +1,6 @@
 package com.example.notesWeb.controller.Notes;
 
+import com.example.notesWeb.dtos.AuthResponse;
 import com.example.notesWeb.exception.kafka.kafkaNoteProducer;
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
@@ -9,14 +10,17 @@ import com.example.notesWeb.exception.redis.noteRedis.NoteRedisProducer;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.service.FailedException;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
+import com.sun.security.auth.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
 
@@ -83,11 +87,11 @@ public class NoteController {
 
     //API Handle Get List Notes
     @Operation(summary = "Get all list notes of user")
-    @GetMapping("/listNotes/{userID}")
-    public ResponseEntity<?> getAllNotesBasedUser(@PathVariable UUID userID){
+    @GetMapping("/listNotes")
+    public ResponseEntity<?> getAllNotesBasedUser(@AuthenticationPrincipal AuthResponse currentUser){
         //Calling back logic get all list notes from service class
         try{
-            List<Notes> notesList = taskNoteService.getAllListNote(userID);
+            List<Notes> notesList = taskNoteService.getAllListNote(currentUser.getId());
             return ResponseEntity.ok(notesList);
         }catch (IllegalArgumentException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Notes!");
@@ -97,11 +101,12 @@ public class NoteController {
     //API Handle Get List NotesID
     @Operation(summary = "Get id of notes")
     @GetMapping("/{noteID}")
-    public ResponseEntity<?> getNoteByID(@PathVariable UUID noteID) {
+    public ResponseEntity<?> getNoteByID(@PathVariable UUID noteID,
+                                         @AuthenticationPrincipal AuthResponse currentUser) {
         try {
-            List<NoteResponse> noteResponseList = taskNoteService.getListNoteID(noteID);
+            NoteResponse noteResponseList = taskNoteService.getListNoteID(noteID, currentUser.getId());
             return ResponseEntity.ok(noteResponseList);
-        } catch (IllegalArgumentException e) {
+        } catch (FailedException e) {
             // Return message case can't fine NotesID
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (Exception e) {
@@ -113,11 +118,11 @@ public class NoteController {
     //API Handle Delete Notes By User
     @Operation(summary = "The user deleted the proprietary note")
     @DeleteMapping("/delete/{noteID}")
-    public ResponseEntity<?> deleteNote(@PathVariable UUID noteID, @RequestParam UUID userID){
+    public ResponseEntity<?> deleteNote(@PathVariable UUID noteID, @AuthenticationPrincipal AuthResponse currentUser){
         try{
-            taskNoteService.deleteNote(noteID, userID);
+            taskNoteService.deleteNote(noteID, currentUser.getId());
             return ResponseEntity.ok("Note Deleted Successfully");
-        }catch (IllegalArgumentException e){
+        }catch (FailedException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Notes to delete!");
         }catch (AccessDeniedException e){
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());

@@ -53,11 +53,16 @@ public class AuthRedisConsumer extends RedisStreamConsume {
     @Override
     protected void handleMessage(MapRecord<String, Object, Object> record) {
         Map<Object, Object> r = record.getValue();
+        log.info("Raw record from Redis: {}", r);
 
         String username = (String) r.get("username");
         String password = (String) r.get("password");
         String sessionId = (String) r.get("sessionId");
 
+        if (username == null || password == null) {
+            log.error("Username or Password is missing in Redis Stream record ID: {}", record.getId());
+            return;
+        }
         try {
             AuthResponse authResponse = authService.login(new AuthRequest(username, password, sessionId));
 
