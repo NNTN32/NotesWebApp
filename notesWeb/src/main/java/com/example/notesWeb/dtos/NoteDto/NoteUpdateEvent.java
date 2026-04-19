@@ -12,5 +12,6 @@ import java.util.UUID;
 public class NoteUpdateEvent {
     private UUID noteID;
     private UUID userID;
+    private String username;
     private NoteRequest noteRequest;
 }

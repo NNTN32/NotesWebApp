@@ -174,4 +174,4 @@ jobs:
     steps:
       - name: Trigger Dokploy Webhook
         run: |
-          curl -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
+          curl -f -X POST "${{ secrets.DOKPLOY_WEBHOOK_URL }}"
