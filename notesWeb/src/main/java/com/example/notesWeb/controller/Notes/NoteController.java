@@ -10,6 +10,7 @@ import com.example.notesWeb.exception.redis.noteRedis.NoteRedisProducer;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
+import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.service.FailedException;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
@@ -47,6 +48,9 @@ public class NoteController {
 
     @Autowired
     private NoteRedisProducer noteRedisProducer;
+
+    @Autowired
+    private NotesRepo notesRepo;
 
     //API Handle Create Notes
     @Operation(summary = "User create notes")
@@ -137,28 +141,15 @@ public class NoteController {
     @PutMapping("/update/{noteID}")
     public ResponseEntity<?>updateNotes(
             @PathVariable UUID noteID,
-            @RequestHeader("Authorization") String authorHeader,
+            @AuthenticationPrincipal AuthResponse currentUser,
             @RequestBody NoteRequest noteRequest){
         try{
-            if(authorHeader == null || !authorHeader.startsWith("Bearer ")){
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Authorization header is missing or invalid.");
+            boolean ownerNote = notesRepo.existsByIdAndUserId(noteID, currentUser.getId());
+            if (!ownerNote) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not allowed to edit this note!");
             }
-
-            String token = authorHeader.substring(7);
-
-            //Checking situation if token has expired
-            if(jwtProvider.isTokenExpired(token)){
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Token expired. Please login again.");
-            }
-
-            //Checking situation if user really & still login
-            String username = jwtProvider.getUserFromJwt(token);
-            User user = userRepo.findByUsername(username)
-                    .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
-            UUID userID = user.getId();
-
             //Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
-            NoteUpdateEvent event = new NoteUpdateEvent(noteID, userID, noteRequest);
+            NoteUpdateEvent event = new NoteUpdateEvent(noteID, currentUser.getId(), currentUser.getUsername(), noteRequest);
             //return ResponseEntity.ok(updated);
             kafkaNoteProducer.sendNoteUpdate(event);
             return ResponseEntity.accepted().body("Updated request submitted to Kafka");

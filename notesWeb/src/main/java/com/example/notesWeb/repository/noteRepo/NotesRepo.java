@@ -19,4 +19,7 @@ public interface NotesRepo extends JpaRepository<Notes, UUID> {
 
     @Query("SELECT n FROM Notes n WHERE n.id = :noteID")
     Optional<Notes> findNote(@Param("noteID") UUID noteID);
+
+    //Auto generate query "SELECT count(...) > 0"
+    boolean existsByIdAndUserId(UUID noteID, UUID userID);
 }

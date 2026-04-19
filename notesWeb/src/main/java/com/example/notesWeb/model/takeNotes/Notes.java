@@ -45,4 +45,7 @@ public class Notes {
     @OneToMany(mappedBy = "notes", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true) //Add noteID key constraint on noteMedia side delete by
     @JsonManagedReference
     private List<NoteMedia> noteMediaList;
+
+    @Version
+    private Integer version; // Prevent bug race condition of updating one notes same time
 }

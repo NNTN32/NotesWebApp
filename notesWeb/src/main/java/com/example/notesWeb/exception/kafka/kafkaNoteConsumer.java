@@ -16,12 +16,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.AccessDeniedException;
 import java.time.LocalDateTime;
@@ -41,37 +43,53 @@ public class kafkaNoteConsumer {
 
     @KafkaListener(topics = "note-updates", groupId = "note-update-group")
     public void consume(NoteUpdateEvent noteUpdateEvent, Acknowledgment acknowledgment) {
-        try{
-            Notes updateNote = taskNoteService.updateNote(
-                    noteUpdateEvent.getNoteRequest(),
-                    noteUpdateEvent.getNoteID(),
-                    noteUpdateEvent.getUserID()
-            );
+        log.info("Consuming update for note {}", noteUpdateEvent.getNoteID());
 
-            NoteCache cacheDTO = NoteCache.fromEntity(updateNote);
-            try {
-                String noteJson = objectMapper.writeValueAsString(cacheDTO);
-                String redisKey = "note:" + updateNote.getId();
+        try {
+//            if (noteUpdateEvent.getNoteRequest().getTitle() != null && noteUpdateEvent.getNoteRequest().getTitle().contains("FAIL_TEST")) {
+//                throw new RuntimeException("Cố tình gây lỗi để test DLT nè Nhân ơi!");
+//            }
+            //Service return back to class DTO already formated for Cache
+            Notes updateNote = taskNoteService.updateNote(noteUpdateEvent);
 
-                redisTemplate.opsForValue().set(redisKey, noteJson);
-                log.info("Note updated & cached successfully: {}",updateNote.getId());
-
-                //Send realtime through STOMP after updated notes
-                User user = userRepo.findById(noteUpdateEvent.getUserID())
-                        .orElseThrow(() -> new RuntimeException("User not found!"));
-                messagingTemplate.convertAndSendToUser(user.getUsername(), "/queue/note-updates", cacheDTO);
-
-                //Prevent kafka retry
+            if (updateNote == null) {
+                log.warn("Note is being processed via Fallback. Consumer is now finished!");
                 acknowledgment.acknowledge();
-            } catch (JsonProcessingException e) {
-                log.error("Failed to serialize note {} for Redis: {}", updateNote.getId(), e.getMessage());
-            } catch (DataAccessException redisEx) {
-                log.warn("Redis unavailable, skipping cache update for note {}. Error: {}", updateNote.getId(), redisEx.getMessage());
+                return;
             }
+
+            //Side effect: Cache & Notify
+            handleSideEffects(updateNote, noteUpdateEvent.getUsername());
+
+            //Prevent kafka retry, confirm update success
+            acknowledgment.acknowledge();
+            log.info("Note update completed: {}", updateNote.getId());
+
         } catch (Exception e) {
-            log.error("Failed to process note update: {}", e.getMessage());
+            log.error("Conflict detected for note {}. Someone else updated it!", noteUpdateEvent.getNoteID());
+            taskNoteService.handleFailure(noteUpdateEvent, e);
+            acknowledgment.acknowledge();
         }
     }
+
+    private void handleSideEffects (Notes updateNote, String username) {
+        try{
+            NoteCache cacheDTO = NoteCache.fromEntity(updateNote);
+            String noteJson = objectMapper.writeValueAsString(cacheDTO);
+            String redisKey = "note:" + updateNote.getId();
+
+            redisTemplate.opsForValue().set(redisKey, noteJson);
+
+            //Send realtime through STOMP after updated notes
+            //Using username from event no need to Query DB
+            messagingTemplate.convertAndSendToUser(username, "/queue/note-updates", cacheDTO);
+
+            log.info("Note updated & cached successfully: {}",updateNote.getId());
+        } catch (Exception e) {
+            log.warn("STOMP/Redis notify failed, but DB was updated: {}", updateNote.getId(), e.getMessage());
+        }
+    }
+
 
     @PreDestroy
     public void shutdown() {
