@@ -52,6 +52,7 @@ public class SecurityConfig {
                                 "/reminder/set-time/{idListTodo}"
                         ).hasRole("USER")
                         .requestMatchers("/ws/**",
+                                "/actuator/**",
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
