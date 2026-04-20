@@ -80,13 +80,22 @@ spring:
 
 server:
   port: ${SERVER_PORT:8081}
-
+  forward-headers-strategy: framework
   #expired time for timeout server
   tomcat:
     threads:
       max: 1000
       min-spare: 100
     connection-timeout: 60000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      show-details: always
 
 jwt:
   secret: ${JWT_SECRET:your_default_secret_for_dev_only}
