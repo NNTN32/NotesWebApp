@@ -16,7 +16,6 @@ public class apiConfig {
         final String schemeName = "bearerAuth";
         return new OpenAPI()
                 .info(new Info().title("Note App API").version("1.0"))
-//                .addSecurityItem(new SecurityRequirement().addList(schemeName))
                 .addServersItem(new Server().url("https://server.nhannotes.id.vn").description("Production Server"))
                 .addServersItem(new Server().url("http://localhost:8081").description("Local Server"))
                 .components(new Components()

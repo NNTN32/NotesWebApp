@@ -97,6 +97,14 @@ management:
     health:
       show-details: always
 
+springdoc:
+  swagger-ui:
+    path: /
+    head-content: "<style>.auth-wrapper { display: none; }</style>"
+    display-query-params-without-oauth2: true
+  api-docs:
+    path: /v3/api-docs
+
 jwt:
   secret: ${JWT_SECRET:your_default_secret_for_dev_only}
   expiration: ${JWT_EXPIRATION:86400000}

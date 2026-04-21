@@ -60,7 +60,7 @@ public class SecurityConfig {
                                 "/notes/**",
                                 "/media/**",
                                 "/todo/**",
-                                "/reminder/**").permitAll()
+                                "/reminder/**","/").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new jwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
