@@ -47,6 +47,17 @@ Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 | 6 | Secure, highly available self-hosted deployment without relying on cloud vendor lock-in | Designed production-ready setup with **Docker Swarm + Dokploy + Cloudflare Tunnel** + automated CI/CD and health monitoring |
 
 ## 📦 Deployment
+
+**Pipeline Overview:**
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/3ec81ae9-6ffb-4d5c-ae3e-146024b62c5b" alt="Deployment Flow Diagram" width="95%" />
+</p>
+
+*Above is the CI/CD pipeline and runtime environment flow.*
+
+**Key Deployment Technologies:**
+
 - Fully containerized with **Docker Swarm**
 - Self-hosted PaaS using **Dokploy**
 - Zero Trust Networking via **Cloudflare Tunnel**
