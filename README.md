@@ -3,8 +3,8 @@
 **A high-performance, real-time, event-driven Notes application** built with modern Java/Spring Boot stack, focusing on scalability, security, and reliable messaging.
 
 **Live Demo**: Self-hosted via Cloudflare Tunnel (zero-trust networking)  
-**GitHub**: [NNTN32/NotesWebApp](https://github.com/NNTN32/NotesWebApp)
-[ ![API Docs](https://img.shields.io/badge/Swagger-API_Documentation-eb001b?style=for-the-badge&logo=swagger) ](https://server.nhannotes.id.vn)
+📖 **[API Documentation](https://server.nhannotes.id.vn)** (Swagger UI)  
+📂 **[GitHub Repository](https://github.com/NNTN32/NotesWebApp)**
 
 ## ✨ Key Features
 - Modular Monolith architecture with clean separation of concerns (Auth, Notes, Media services)
@@ -49,9 +49,9 @@ Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 
 ## 📖 API Documentation & Exploration
 
-Dự án sử dụng **OpenAPI 3.0 (Swagger)** để quản lý và tài liệu hóa toàn bộ hệ thống API. Bạn có thể tương tác trực tiếp với các endpoint tại:
+This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire API system. You can interact directly with the endpoints at:
 
-🔗 **[https://server.nhannotes.id.vn/swagger-ui/index.html](https://server.nhannotes.id.vn)**
+🔗 **[https://server.nhannotes.id.vn](https://server.nhannotes.id.vn)**
 
 **Testing Tips:**
 - **Authentication:** Some endpoints require JWT. You can use the `auth-controller` endpoint to log in/register (email, username & password), obtain a Token, and then click the **"Authorize"** button at the top of the Swagger page to paste the token.
