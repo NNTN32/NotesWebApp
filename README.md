@@ -4,6 +4,7 @@
 
 **Live Demo**: Self-hosted via Cloudflare Tunnel (zero-trust networking)  
 **GitHub**: [NNTN32/NotesWebApp](https://github.com/NNTN32/NotesWebApp)
+[ ![API Docs](https://img.shields.io/badge/Swagger-API_Documentation-eb001b?style=for-the-badge&logo=swagger) ](https://server.nhannotes.id.vn)
 
 ## ✨ Key Features
 - Modular Monolith architecture with clean separation of concerns (Auth, Notes, Media services)
@@ -45,6 +46,16 @@ Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 | 4 | Users required real-time updates for collaborative notes and reminders | Integrated **full-duplex WebSocket (STOMP)** for instant push notifications |
 | 5 | Risk of duplicate data processing + inefficient primary key generation in distributed system | Used **PostgreSQL + UUID v7 (ordered)** + implemented **Idempotency logic** |
 | 6 | Secure, highly available self-hosted deployment without relying on cloud vendor lock-in | Designed production-ready setup with **Docker Swarm + Dokploy + Cloudflare Tunnel** + automated CI/CD and health monitoring |
+
+## 📖 API Documentation & Exploration
+
+Dự án sử dụng **OpenAPI 3.0 (Swagger)** để quản lý và tài liệu hóa toàn bộ hệ thống API. Bạn có thể tương tác trực tiếp với các endpoint tại:
+
+🔗 **[https://server.nhannotes.id.vn/swagger-ui/index.html](https://server.nhannotes.id.vn)**
+
+**Testing Tips:**
+- **Authentication:** Some endpoints require JWT. You can use the `auth-controller` endpoint to log in/register (email, username & password), obtain a Token, and then click the **"Authorize"** button at the top of the Swagger page to paste the token.
+
 
 ## 📦 Deployment
 
