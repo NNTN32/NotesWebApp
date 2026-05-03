@@ -39,6 +39,7 @@ Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 </p>
 
 - **Event-Driven System** → Decoupled services, high throughput under load
+
 **Kafka (feature update Notes):**
 
 <p align="center">
