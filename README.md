@@ -33,8 +33,23 @@ Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 
 ## 🏗️ Architecture Highlights
 - **Modular Monolith** → Clean separation of concerns, easy to maintain and scale
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/1eecf02f-bbdb-4ccc-a34c-0de2872f2f68" alt="Deployment Flow Diagram" width="95%" />
+</p>
+
 - **Event-Driven System** → Decoupled services, high throughput under load
-- **Self-hosted Production Grade** → Docker Swarm + Cloudflare Tunnel + automated monitoring
+**Kafka (feature update Notes):**
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/65371b31-87b7-46e4-9b64-4576ecc8b959" alt="Deployment Flow Diagram" width="95%" />
+</p>
+
+**RabbitMQ (feature reminder DeadlineTime):**
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/ac5c8dcf-c44f-4a5e-baee-a8cc2cdea40a" alt="Deployment Flow Diagram" width="95%" />
+</p>
 
 ## 🔥 Challenges & How I Solved Them
 
@@ -58,6 +73,7 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 
 
 ## 📦 Deployment
+- **Self-hosted Production Grade** → Docker Swarm + Cloudflare Tunnel + automated monitoring
 
 **Pipeline Overview:**
 
