@@ -93,9 +93,3 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 - Automated CI/CD pipelines with **GitHub Actions**
 - Health check monitoring & container lifecycle management
 
-## 🚀 Getting Started
-
-```bash
-git clone https://github.com/NNTN32/NotesWebApp.git
-cd NotesWebApp
-# Chi tiết setup Docker Swarm & Dokploy nằm trong thư mục notesWeb và .github/workflows
