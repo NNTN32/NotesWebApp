@@ -71,7 +71,8 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 
 **Testing Tips:**
 - **Authentication:** Some endpoints require JWT. You can use the `auth-controller` endpoint to log in/register (email, username & password), obtain a Token, and then click the **"Authorize"** button at the top of the Swagger page to paste the token.
-
+- **Time Zone:** You must set the time zone (e.g., Asia/Ho_Chi_Minh) before the deadline. Additionally, the due date must be entered in HH:mm format, and the reminder time must be PT1M, PT... depending on how long you want the reminder to be.
+- **Database** You can connect to the database in TablePlus by setting it up (Host/Socket: 192.168.139.117, Port: 5433, User: postgres, Pass: 03102003, Database: NoteApp) to check if the data you entered is actually saved.
 
 ## 📦 Deployment
 - **Self-hosted Production Grade** → Docker Swarm + Cloudflare Tunnel + automated monitoring
