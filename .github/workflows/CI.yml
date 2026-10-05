@@ -61,7 +61,7 @@ jobs:
           platforms: linux/amd64
           tags: notesweb-ci/notes-app:ci
           cache-from: type=gha,scope=be-ci
-          cache-to: type=gha,mode=max,scope=be-ci
+          cache-to: type=gha,mode=max,scope=be-ci,ignore-error=true
       - name: Start disposable infrastructure and the built image
         run: docker compose up -d --no-build --wait --wait-timeout 180
       - name: Application smoke and integration tests
@@ -148,7 +148,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=be-release
-          cache-to: type=gha,mode=max,scope=be-release
+          cache-to: type=gha,mode=max,scope=be-release,ignore-error=true
       - name: Reject superseded main run before promotion
         if: github.ref == 'refs/heads/main'
         uses: actions/github-script@v7
