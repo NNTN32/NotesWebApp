@@ -6,16 +6,21 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Order;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.RedisPassword;
+import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
+@EnableConfigurationProperties(RedisProperties.class)
 public class RedisConfig {
 
     //Setup port running Redis
@@ -23,11 +28,17 @@ public class RedisConfig {
     @Bean
     @Primary
     public LettuceConnectionFactory connectionFactory(
-            @Value("${spring.redis.host}") String host,
-            @Value("${spring.redis.port}") int port
+            RedisProperties properties
     ) {
 //        return new LettuceConnectionFactory("localhost", 6379);
-        LettuceConnectionFactory factory = new LettuceConnectionFactory(host, port);
+        RedisStandaloneConfiguration configuration = new RedisStandaloneConfiguration(
+                properties.getHost(), properties.getPort());
+        configuration.setDatabase(properties.getDatabase());
+        configuration.setUsername(properties.getUsername());
+        if (properties.getPassword() != null && !properties.getPassword().isEmpty()) {
+            configuration.setPassword(RedisPassword.of(properties.getPassword()));
+        }
+        LettuceConnectionFactory factory = new LettuceConnectionFactory(configuration);
         factory.setValidateConnection(true);
         return factory;
     }
