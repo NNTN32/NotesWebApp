@@ -1,0 +1,14 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Backend local (8082)",
+      "request": "launch",
+      "mainClass": "com.example.notesWeb.NotesWebApplication",
+      "cwd": "${workspaceFolder}/notesWeb",
+      "args": "--server.port=8082",
+      "console": "integratedTerminal"
+    }
+  ]
+}
