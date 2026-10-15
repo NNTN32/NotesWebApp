@@ -121,6 +121,7 @@ jobs:
     # release-policy is skipped on feature pushes; PRs never log in or publish.
     if: >-
       always() && needs.build-and-test.result == 'success' && github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip deploy]') &&
       (startsWith(github.ref, 'refs/heads/feature/') ||
        (github.ref == 'refs/heads/main' && needs.release-policy.outputs.merged == 'true'))
     runs-on: ubuntu-latest
