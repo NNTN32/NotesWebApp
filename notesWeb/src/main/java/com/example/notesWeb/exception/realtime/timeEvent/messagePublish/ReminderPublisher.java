@@ -16,10 +16,12 @@ public class ReminderPublisher {
     private final Outbox outbox;
     private final ObjectMapper json;
     public static UUID eventId(UUID todoId, Instant trigger) {
+        trigger = trigger.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         return UUID.nameUUIDFromBytes(("reminder:"+todoId+":"+trigger).getBytes(StandardCharsets.UTF_8));
     }
     @Transactional(propagation = Propagation.MANDATORY)
     public void schedule(UUID todoId, Instant trigger) {
+        trigger = trigger.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
         try {
             outbox.append(eventId(todoId,trigger), "RABBIT", "notes.events.v2", "reminder.ready",
                     json.writeValueAsString(ReminderDelay.builder().todoID(todoId).trigger(trigger).build()), trigger);
