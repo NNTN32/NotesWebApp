@@ -3,31 +3,20 @@ package com.example.notesWeb.service.takeNotes;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
 import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
-import com.example.notesWeb.dtos.NoteDto.stagingDTO.ErrorResponse;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
-import com.example.notesWeb.model.takeNotes.StagedUpdate;
-import com.example.notesWeb.repository.noteRepo.MediaRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
-import com.example.notesWeb.repository.noteRepo.StagingRepo;
 import com.example.notesWeb.service.FailedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -36,14 +25,11 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TaskNoteService {
+    private final com.example.notesWeb.messaging.Inbox inbox;
+    private final com.example.notesWeb.messaging.Outbox outbox;
     private final UserRepo userRepo;
     private final NotesRepo notesRepo;
-    private final MediaRepo mediaRepo;
     private final ObjectMapper objectMapper;
-    private final StagingRepo stagingRepo;
-    private final SimpMessagingTemplate messagingTemplate;
-    @Autowired
-    private RedisTemplate<String, String> redisTemplate;
 
     //Logic take lists Note
     public List<Notes> getAllListNote(UUID userID){
@@ -83,7 +69,6 @@ public class TaskNoteService {
 
     //Logic handle update Note
     @Transactional
-    @CircuitBreaker(name = "noteUpdate", fallbackMethod = "handleFailure")
     public Notes updateNote(NoteUpdateEvent updateEvent){
         UUID userID = updateEvent.getUserID();
         UUID noteID = updateEvent.getNoteID();
@@ -112,33 +97,17 @@ public class TaskNoteService {
         return notesRepo.save(notes);
     }
 
-    public Notes handleFailure (NoteUpdateEvent updateEvent, Throwable t) {
-        log.error(">>> [CIRCUIT-BREAKER] Short circuit or major error for Note: {}. Reason: {}", updateEvent.getNoteID(), t.getMessage());
-        try {
-            ErrorResponse errorNotify = new ErrorResponse("Saving updates!");
-            messagingTemplate.convertAndSendToUser(
-                    updateEvent.getUsername(),
-                    "/queue/note-updates",
-                    errorNotify
-            );
-        } catch (Exception e) {
-            log.warn("STOMP notify failed: {}", e.getMessage());
-        }
-        try {
-            StagedUpdate failedEvent = new StagedUpdate();
-            failedEvent.setNoteID(updateEvent.getNoteID());
-            failedEvent.setUserID(updateEvent.getUserID());
-            failedEvent.setRawPayload(objectMapper.writeValueAsString(updateEvent));
-            failedEvent.setErrorReason(t.getMessage());
-            failedEvent.setRetryCount(0);
-            failedEvent.setCreatedAt(LocalDateTime.now());
 
-            stagingRepo.save(failedEvent);
-            log.info(">>> [STAGING] Error message saved to database for later processing!");
-
-        } catch (Exception e) {
-            log.error(">>> [CRITICAL] Unable to save the entire error table! Check the system immediately!", e.getMessage());
+    @Transactional
+    public void updateOnce(String key, NoteUpdateEvent event) {
+        if (!inbox.claim(key)) return;
+        Notes updated = updateNote(event);
+        try {
+            String payload = objectMapper.writeValueAsString(com.example.notesWeb.dtos.NoteDto.NoteCache.fromEntity(updated));
+            java.util.UUID id = java.util.UUID.nameUUIDFromBytes(("notify:"+key).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            outbox.append(id, "STOMP", event.getUsername(), "/queue/note-updates", payload, java.time.Instant.now());
+        } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
+            throw new IllegalArgumentException("Cannot serialize note notification");
         }
-        return null;
     }
 }

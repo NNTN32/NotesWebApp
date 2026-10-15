@@ -1,59 +1,33 @@
 package com.example.notesWeb.exception;
 
-import io.lettuce.core.RedisBusyException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.annotation.Profile;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.annotation.Order;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.connection.stream.ReadOffset;
-import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.dao.DataAccessException;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class RedisStreamGroup {
-    private final RedisTemplate<String, Object> redisTemplate;
-
+    private final RedisTemplate<String,Object> redisTemplate;
     @EventListener(ApplicationReadyEvent.class)
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     public void initGroup() {
-        createGroup("auth:login:stream", "auth-group");
-        createGroup("notes:create:stream", "notes-group");
-        createGroup("media:create:stream", "media-group");
+        createGroup("auth:login:stream","auth-group");
+        createGroup("notes:create:stream","notes-group");
+        createGroup("media:create:stream","media-group");
     }
-
-    private void createGroup(String streamKey, String group) {
+    private void createGroup(String stream,String group) {
         try {
-            //Ensure situation Stream existed,if not Stream not able to create Consumer group
-            Boolean exists = redisTemplate.hasKey(streamKey);
-            if (Boolean.FALSE.equals(exists)) {
-                redisTemplate.opsForStream().add(
-                        StreamRecords.newRecord()
-                                .ofObject("init")
-                                .withStreamKey(streamKey)
-                );
-            }
-
-            //Check existing groups
-            boolean groupExists = redisTemplate.opsForStream()
-                    .groups(streamKey)
-                    .stream()
-                    .anyMatch(g -> g.groupName().equals(group));
-
-            if (groupExists) {
-                log.info("Redis group [{}] already exists for stream [{}]", group, streamKey);
-                return;
-            }
-
-            //Create group
-            redisTemplate.opsForStream()
-                    .createGroup(streamKey, ReadOffset.latest(), group);
-
-            log.info("Group [{}] created for stream [{}]", group, streamKey);
-        }catch (Exception e) {
-            log.error("Failed to create group [{}] for stream [{}]", group, streamKey, e);
+            // Spring Data sends MKSTREAM. No dummy poison entry; queued-before-start work is retained.
+            redisTemplate.opsForStream().createGroup(stream,ReadOffset.from("0-0"),group);
+        } catch (DataAccessException failure) {
+            String reason=failure.getMostSpecificCause().getMessage();
+            if (reason==null || !reason.startsWith("BUSYGROUP")) throw failure;
         }
     }
 }

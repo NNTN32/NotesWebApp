@@ -25,6 +25,7 @@ public class ReminderService {
     private final ReminderPublisher reminderPublisher;
 
     // Set a specific time (HH:mm) + username from the token.
+    @org.springframework.transaction.annotation.Transactional
     public ListTodo setDeadlineByPresent(UUID idListTodo, String time, Duration reminder,String userTimezone, String username) {
 
         //Throw business exception for setup time maybe invalid
@@ -61,7 +62,7 @@ public class ReminderService {
             Instant trigger = deadlineInstant.minus(reminder);
 
 
-            ListTodo todo = todoRepo.findByIdWithUser(idListTodo)
+            ListTodo todo = todoRepo.findLockedById(idListTodo)
                     .orElseThrow(() -> new FailedException("Todo not found with id: " + idListTodo));
 
             if (!todo.getUser().getUsername().equals(username)) {
@@ -77,16 +78,7 @@ public class ReminderService {
 
             todoRepo.save(todo);
 
-            //Calculate delay from present -> trigger
-            long delayMs = Duration.between(Instant.now(), trigger).toMillis();
-
-            //1 minute publish MQ soon <=> > 2 minute Scheduler will poll later & save into DB
-            if (delayMs > 0 && delayMs <= 120_000) {
-                reminderPublisher.publishDelay(todo.getIdList(), delayMs);
-                log.info("Publish reminder {} to MQ (delay {}ms)", todo.getIdList(), delayMs);
-            } else {
-                log.info("Reminder {} scheduled in DB only (delay {}ms)", todo.getIdList(), delayMs);
-            }
+            reminderPublisher.schedule(todo.getIdList(), trigger);
 
             log.info("Set reminder for '{}' at {} by user '{}'", todo.getIdList(), trigger);
             return todo;

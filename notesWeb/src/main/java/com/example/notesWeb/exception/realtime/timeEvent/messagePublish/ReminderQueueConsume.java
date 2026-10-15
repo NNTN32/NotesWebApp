@@ -1,43 +1,32 @@
 package com.example.notesWeb.exception.realtime.timeEvent.messagePublish;
-
+import com.example.notesWeb.messaging.*;
 import com.example.notesWeb.dtos.TodoListDto.notificatePopup.ReminderDelay;
-import com.example.notesWeb.exception.realtime.timeEvent.sentMessage.NotifyRepo;
-import com.example.notesWeb.model.todoLists.ListTodo;
-import com.example.notesWeb.model.todoLists.State;
-import com.example.notesWeb.repository.todoRepo.TodoRepo;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rabbitmq.client.Channel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.HexFormat;
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class ReminderQueueConsume {
-    private final TodoRepo todoRepo;
-    private final NotifyRepo notifyRepo;
-
-    @RabbitListener(queues = "reminder.mg.queue")
-    @Transactional
-    public void consumeReminder (ReminderDelay message){
-        ListTodo todo = todoRepo.findByIdWithUser(message.getTodoID())
-                .orElse(null);
-
-        //Cancel if have remain todo
-        if (todo == null || todo.getReminded() || todo.getState() == State.SENT) return;
-
-        if(todo.getState() != State.QUEUE && todo.getState() != State.PENDING) {
-            log.info("Skip duplicate reminder {}", todo.getIdList());
-            return;
+    private final ReminderDelivery delivery;
+    private final FailureLedger failures;
+    private final ObjectMapper json;
+    @RabbitListener(queues={"notes.reminder.v2","reminder.mg.queue"},ackMode="MANUAL",concurrency="1")
+    public void consumeReminder(Message raw,Channel channel) throws Exception {
+        long tag=raw.getMessageProperties().getDeliveryTag();
+        String payload=new String(raw.getBody(),StandardCharsets.UTF_8);
+        String key="rabbit:"+HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(raw.getBody()));
+        try { delivery.deliver(json.readValue(payload,ReminderDelay.class)); }
+        catch (Exception failure) {
+            try { failures.rabbitFailure(key,payload,"Reminder processing failed"); }
+            catch (Exception cannotRetain) { channel.basicNack(tag,false,true); return; }
         }
-
-        //Sent notify through on Websocket
-        notifyRepo.notify(todo);
-        todo.setState(State.SENT);
-        todo.setReminded(true);
-        todoRepo.save(todo);
-
-        log.info("Reminder processed {}", todo.getIdList());
+        // Business transaction or durable retry/DLQ has committed before ACK.
+        channel.basicAck(tag,false);
     }
 }

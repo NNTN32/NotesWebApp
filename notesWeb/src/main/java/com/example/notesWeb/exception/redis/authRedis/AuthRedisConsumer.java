@@ -1,128 +1,42 @@
 package com.example.notesWeb.exception.redis.authRedis;
-
-import com.example.notesWeb.config.jwtProvider;
-import com.example.notesWeb.dtos.AuthRequest;
-import com.example.notesWeb.dtos.AuthResponse;
+import com.example.notesWeb.dtos.*;
 import com.example.notesWeb.exception.RedisStreamConsume;
+import com.example.notesWeb.messaging.AuthResults;
 import com.example.notesWeb.model.Status;
-import com.example.notesWeb.model.User;
-import com.example.notesWeb.repository.UserRepo;
-import com.example.notesWeb.service.FailedException;
-import com.example.notesWeb.service.AuthService;
+import com.example.notesWeb.service.*;
 import com.google.common.util.concurrent.RateLimiter;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
-import org.springframework.data.redis.connection.stream.MapRecord;
-import java.time.Duration;
-import java.util.*;
-
-@Slf4j
 @Component
 public class AuthRedisConsumer extends RedisStreamConsume {
-//    @Autowired
-//    private RedisTemplate<String, Object> redisTemplate;
-
-    private static final String STREAM_KEY = "auth:login:stream";
-    private static final String GROUP = "auth-group";
-
     private final AuthService authService;
-    private final SimpMessagingTemplate messagingTemplate;
-
-    private final RateLimiter limitRequestLogin = RateLimiter.create(50.0);
-
-    @Autowired
-    private UserRepo userRepo;
-
-    @Autowired
-    private jwtProvider jwtProvider;
-
-    //Write handle constructor instead of using bean let it created
-    public AuthRedisConsumer(
-            RedisTemplate<String, Object> redisTemplate,
-            AuthService authService,
-            SimpMessagingTemplate messagingTemplate
-    ) {
-        super(redisTemplate, STREAM_KEY, GROUP, 20);
-        this.authService = authService;
-        this.messagingTemplate = messagingTemplate;
+    @Autowired private AuthResults results;
+    private final RateLimiter rate=RateLimiter.create(50.0);
+    public AuthRedisConsumer(RedisTemplate<String,Object> redis,AuthService auth,SimpMessagingTemplate unused) {
+        super(redis,"auth:login:stream","auth-group",1); this.authService=auth;
     }
-
-    @Override
-    protected void handleMessage(MapRecord<String, Object, Object> record) {
-        Map<Object, Object> r = record.getValue();
-        log.debug("Processing authentication request");
-
-        String username = (String) r.get("username");
-        String password = (String) r.get("password");
-        String sessionId = (String) r.get("sessionId");
-
-        if (username == null || password == null) {
-            log.error("Username or Password is missing in Redis Stream record ID: {}", record.getId());
-            return;
-        }
+    @Override protected void handleMessage(MapRecord<String,Object,Object> record) {
+        var fields=record.getValue();
+        String username=(String)fields.get("username"), password=(String)fields.get("password"), id=(String)fields.get("sessionId");
+        if (username==null || password==null || id==null) throw new IllegalArgumentException("Invalid authentication request");
+        if (results.completed(id)) return;
+        String lease=results.claim(id);
         try {
-            AuthResponse authResponse = authService.login(new AuthRequest(username, password, sessionId));
-
-            String resultKey = "login:result:" + sessionId;
-            //Idempotent check
-            if (Boolean.TRUE.equals(redisTemplate.hasKey(resultKey))) {
-                log.info("Login result already exists for session {}", sessionId);
-                return;
+            if (results.completed(id)) return;
+            AuthResponse result;
+            try {
+                if (!rate.tryAcquire()) throw new FailedException("Rate limited");
+                result=authService.login(new AuthRequest(username,password,id));
+            } catch (FailedException invalidCredentials) {
+                result=new AuthResponse(null,null,null,username,null,Status.FAIL,"Invalid credentials or too many attempts");
+            } catch (RuntimeException infrastructureFailure) {
+                // Do not propagate arbitrary credential-bearing exception messages into logs/DLQ.
+                throw new IllegalStateException("Authentication processing failed");
             }
-
-            //Rate limit request
-            if (!limitRequestLogin.tryAcquire()) {
-                log.warn("Login rate limited {}", record.getId());
-
-                messagingTemplate.convertAndSendToUser(
-                        sessionId,
-                        "/queue/login-result",
-                        new AuthResponse(null, null, null, username, null, Status.FAIL, "Too many login attempts")
-                );
-                return;
-            }
-
-            //Pass the result into a Hash for the Controller to extract
-            redisTemplate.opsForHash().putAll(
-                    resultKey,
-                    Map.of(
-                            "status", "SUCCESS",
-                            "token", authResponse.getToken(),
-                            "rotationSecret", authResponse.getRotationSecret(),
-                            "id", String.valueOf(authResponse.getId()),
-                            "role", String.valueOf(authResponse.getRole()),
-                            "message", authResponse.getMessage()
-                    )
-            );
-
-            redisTemplate.expire(resultKey, Duration.ofMinutes(2));
-            //Sent through websocket
-            messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/queue/login-result",
-                    authResponse
-            );
-            //Catch same exception so it will log error for wrong password
-            //Without discrimination auth fail & system fail
-        }
-        catch (FailedException e) {
-            log.warn("Authentication failed");
-
-            messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/queue/login-result",
-                    new AuthResponse(null, null, null, username, null, Status.FAIL, e.getMessage())
-            );
-        }catch (Exception e) {
-            log.error("Authentication processing failed");
-            messagingTemplate.convertAndSendToUser(
-                    sessionId,
-                    "/queue/login-result",
-                    new AuthResponse(null, null, null, username, null, Status.FAIL, "Internal server error")
-            );
-        }
+            results.complete(id,lease,result); // atomic result + TTL + processed marker; no WebSocket dependency
+        } finally { results.release(id,lease); }
     }
 }

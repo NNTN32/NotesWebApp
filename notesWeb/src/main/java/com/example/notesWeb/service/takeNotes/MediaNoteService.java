@@ -28,10 +28,16 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class MediaNoteService {
+    private final com.example.notesWeb.messaging.Inbox inbox;
     private final NotesRepo notesRepo;
     private final MediaRepo mediaRepo;
     private final Cloudinary cloudinary;
     private final IdGenerateRepo idGenerateRepo;
+
+    @Transactional
+    public void saveOnce(String eventKey, UUID postId, String url, String type) {
+        if (inbox.claim(eventKey)) saveMediaMetadata(postId, url, type);
+    }
 
     //Logic handle about upload file on notes like photo, video, audio,...
     @Transactional(propagation = Propagation.REQUIRES_NEW)

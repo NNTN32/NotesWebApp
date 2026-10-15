@@ -46,6 +46,11 @@ public class ListTodo {
 
     private Instant triggerAt;
 
+    // Match PostgreSQL timestamp precision before creating the outbox envelope.
+    public void setTriggerAt(Instant triggerAt) {
+        this.triggerAt = triggerAt == null ? null : triggerAt.truncatedTo(java.time.temporal.ChronoUnit.MICROS);
+    }
+
     @Enumerated(EnumType.STRING)
     private State state = State.PENDING;
 

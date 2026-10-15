@@ -10,6 +10,11 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NoteUpdateEvent {
+    private UUID eventId;
+    public NoteUpdateEvent(UUID noteID, UUID userID, String username, NoteRequest request) {
+        this.eventId = UUID.randomUUID(); this.noteID = noteID; this.userID = userID;
+        this.username = username; this.noteRequest = request;
+    }
     private UUID noteID;
     private UUID userID;
     private String username;

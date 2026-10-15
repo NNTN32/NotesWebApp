@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Component
+@org.springframework.boot.autoconfigure.condition.ConditionalOnProperty(name="app.messaging.legacy-staging-replay-enabled", havingValue="true")
 @Slf4j
 @RequiredArgsConstructor
 public class noteRetryScheduler {
@@ -49,7 +50,7 @@ public class noteRetryScheduler {
             //Parse JSON from rawPayload back to the original Object
             NoteUpdateEvent event = objectMapper.readValue(
                     stagedUpdate.getRawPayload(), NoteUpdateEvent.class);
-            taskNoteService.updateNote(event);
+            taskNoteService.updateOnce("legacy-staging:"+stagedUpdate.getId(), event);
             stagingRepo.delete(stagedUpdate);
             log.info("Note: {} has been successfully recovered", stagedUpdate.getNoteID());
 

@@ -50,6 +50,16 @@ public class rabbitMQConfig {
                 .with("reminder.ready.key");
     }
 
+    @Bean
+    public Declarables reliableQueues() {
+        DirectExchange exchange = new DirectExchange("notes.events.v2", true, false);
+        Queue ready = QueueBuilder.durable("notes.reminder.v2").quorum().withArgument("x-delivery-limit", -1).build();
+        Queue dead = QueueBuilder.durable("notes.events.dlq").quorum().build();
+        return new Declarables(exchange, ready, dead,
+                BindingBuilder.bind(ready).to(exchange).with("reminder.ready"),
+                BindingBuilder.bind(dead).to(exchange).with("dead"));
+    }
+
     // JSON converter
     @Bean
     public MessageConverter jacksonMessageConverter() {
@@ -63,6 +73,11 @@ public class rabbitMQConfig {
     ) {
         RabbitTemplate template = new RabbitTemplate(connectionFactory);
         template.setMessageConverter(jacksonMessageConverter);
+        if (connectionFactory instanceof org.springframework.amqp.rabbit.connection.CachingConnectionFactory cached) {
+            cached.setPublisherConfirmType(org.springframework.amqp.rabbit.connection.CachingConnectionFactory.ConfirmType.CORRELATED);
+            cached.setPublisherReturns(true);
+        }
+        template.setMandatory(true);
         return template;
     }
 }

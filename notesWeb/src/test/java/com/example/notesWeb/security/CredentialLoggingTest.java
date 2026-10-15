@@ -28,9 +28,12 @@ class CredentialLoggingTest {
         AuthService auth = mock(AuthService.class);
         when(auth.login(any())).thenThrow(new RuntimeException("CANARY_password_287"));
         var consumer = new AuthRedisConsumer(redis, auth, mock(SimpMessagingTemplate.class));
+        var results = mock(com.example.notesWeb.messaging.AuthResults.class);
+        when(results.claim("request-1")).thenReturn("lease");
+        ReflectionTestUtils.setField(consumer, "results", results);
         var record = StreamRecords.mapBacked(Map.of("username", "alice", "password", "CANARY_password_287", "sessionId", "request-1"))
                 .withStreamKey("auth:login:stream");
-        ReflectionTestUtils.invokeMethod(consumer, "handleMessage", record);
+        assertThatThrownBy(() -> ReflectionTestUtils.invokeMethod(consumer, "handleMessage", record)).isInstanceOf(IllegalStateException.class);
         assertThat(output.getAll()).doesNotContain("CANARY_password_287");
     }
 }

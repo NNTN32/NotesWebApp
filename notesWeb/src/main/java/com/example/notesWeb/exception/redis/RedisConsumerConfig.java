@@ -32,12 +32,9 @@ public class RedisConsumerConfig {
         String instanceID = System.getenv()
                 .getOrDefault("INSTANCE_ID", UUID.randomUUID().toString().substring(0, 6));
 
-        Executors.newSingleThreadScheduledExecutor()
-                        .schedule(() -> {
-                            authRedisConsumer.start("auth-" + instanceID);
-                            noteRedisConsumer.start("note-" + instanceID);
-                            mediaRedisConsumer.start("media-" + instanceID);
-                        }, 3, TimeUnit.SECONDS);
+        authRedisConsumer.start("auth-" + instanceID);
+        noteRedisConsumer.start("note-" + instanceID);
+        mediaRedisConsumer.start("media-" + instanceID);
 
         log.info(" Redis Consumers started with instanceID={}", instanceID);
     }

@@ -32,7 +32,7 @@ public class ReminderScheduler {
         Instant window = now.plusSeconds(120);
 
         //Only get task that pending & almost expired
-        List<ListTodo> todoList = todoRepo.findUpcomingReminder(State.PENDING, now, window);
+        List<ListTodo> todoList = todoRepo.findUpcomingReminder(State.PENDING, window);
 
         for (ListTodo todo : todoList) {
             long delayMs = Duration.between(now, todo.getTriggerAt()).toMillis();
@@ -42,7 +42,7 @@ public class ReminderScheduler {
             todo.setState(State.QUEUE);
             todoRepo.save(todo);
 
-            reminderPublisher.publishDelay(todo.getIdList(), Math.max(0, delayMs));
+            reminderPublisher.schedule(todo.getIdList(), todo.getTriggerAt());
             log.info("Scheduled reminder {}", todo.getIdList());
         }
     }
