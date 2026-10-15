@@ -90,7 +90,7 @@ jobs:
         if: failure()
         run: |
           docker compose ps -a
-          docker compose logs --no-color --tail=200 notes-app
+          docker compose logs --no-color --tail=200 notes-app notes-kafka notes-rabbitmq notes-redis
           curl --silent --show-error --max-time 10 --include http://localhost:8081/v3/api-docs || true
       - name: Upload test reports
         if: always()

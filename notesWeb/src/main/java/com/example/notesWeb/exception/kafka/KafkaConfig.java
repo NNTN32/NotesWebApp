@@ -35,8 +35,7 @@ import java.util.Map;
 @Slf4j
 @lombok.RequiredArgsConstructor
 public class KafkaConfig {
-    private final com.example.notesWeb.messaging.FailureLedger failures;
-    private final com.fasterxml.jackson.databind.ObjectMapper json;
+    private final com.example.notesWeb.messaging.KafkaFailureRecovery recovery;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapSevers;
@@ -78,7 +77,8 @@ public class KafkaConfig {
         objectMap.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
 
         objectMap.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        objectMap.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        objectMap.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, org.springframework.kafka.support.serializer.ErrorHandlingDeserializer.class);
+        objectMap.put(org.springframework.kafka.support.serializer.ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS,JsonDeserializer.class);
         objectMap.put(ConsumerConfig.GROUP_ID_CONFIG, "note-update-group");
         objectMap.put(JsonDeserializer.TRUSTED_PACKAGES, "com.example.notesWeb");//not use "*" when production scale a lot of instance
 
@@ -101,14 +101,7 @@ public class KafkaConfig {
         kafkaFactory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 
         //Exponential Backoff: Try again after 2s->4s->8s (Avoid crashing the database)
-        DefaultErrorHandler errorHandler = new DefaultErrorHandler((record, exception) -> {
-            String key = "kafka:"+record.topic()+":"+record.partition()+":"+record.offset();
-            try {
-                failures.dead(key, "kafka:"+record.topic(), json.writeValueAsString(record.value()), "Note update retries exhausted");
-            } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
-                throw new IllegalStateException("Cannot retain failed message", failure);
-            }
-        }, new FixedBackOff(1000L, 4L));
+        DefaultErrorHandler errorHandler = new DefaultErrorHandler(recovery,new FixedBackOff(1000L,4L));
         errorHandler.setCommitRecovered(true); // only after FailureLedger transaction commits
         kafkaFactory.setCommonErrorHandler(errorHandler);
         return kafkaFactory;

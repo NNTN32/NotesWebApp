@@ -14,6 +14,9 @@ public class FailureLedger {
     private final Outbox outbox;
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void dead(String key, String source, String payload, String reason) {
+        retain(key,source,payload,reason);
+    }
+    private void retain(String key, String source, String payload, String reason) {
         jdbc.update("""
                 INSERT INTO message_dead_letter(message_key,source,payload,reason) VALUES (?,?,?,?)
                 ON CONFLICT DO NOTHING
@@ -24,14 +27,14 @@ public class FailureLedger {
         int attempt = nextAttempt(key);
         if (attempt < 5) return false;
         // Reference only: never duplicate authentication credentials into the database/DLQ.
-        dead(key, stream, recordId, "Redis processing exhausted retries; original retained in stream");
+        retain(key, stream, recordId, "Redis processing exhausted retries; original retained in stream");
         return true;
     }
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void rabbitFailure(String key, String payload, String reason) {
         int attempt = nextAttempt(key);
         if (attempt >= 5) {
-            dead(key, "rabbit", payload, reason);
+            retain(key, "rabbit", payload, reason);
             outbox.append(UUID.nameUUIDFromBytes(("dead:"+key).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
                     "RABBIT", "notes.events.v2", "dead", payload, Instant.now());
         } else {

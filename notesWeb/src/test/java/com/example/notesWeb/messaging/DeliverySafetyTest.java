@@ -89,6 +89,28 @@ class DeliverySafetyTest {
         assertThatThrownBy(()->new kafkaNoteConsumer(service).consume(record,ack)).isInstanceOf(IllegalStateException.class);
         verifyNoInteractions(ack);
     }
+    @Test void kafkaMalformedBytesAreRetainedInsteadOfLosingOriginalPayload() throws Exception {
+        var failures=mock(FailureLedger.class);
+        byte[] raw="broken-json".getBytes(StandardCharsets.UTF_8);
+        var decoder=new org.springframework.kafka.support.serializer.ErrorHandlingDeserializer<>(
+                new org.springframework.kafka.support.serializer.JsonDeserializer<>(NoteUpdateEvent.class));
+        var headers=new org.apache.kafka.common.header.internals.RecordHeaders();
+        assertThat(decoder.deserialize("updates",headers,raw)).isNull();
+        var record=new ConsumerRecord<String,Object>("updates",1,9,"note",null);
+        headers.forEach(h->record.headers().add(h));
+        new KafkaFailureRecovery(failures,json).accept(record,new IllegalArgumentException());
+        var saved=org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(failures).dead(eq("kafka:updates:1:9"),eq("kafka:updates"),saved.capture(),anyString());
+        assertThat(java.util.Base64.getDecoder().decode(json.readTree(saved.getValue()).get("rawValueBase64").asText())).isEqualTo(raw);
+        decoder.close();
+    }
+    @Test void kafkaRecoveryFailurePropagatesRatherThanCompletingOffsetRecovery() {
+        var failures=mock(FailureLedger.class);
+        doThrow(new IllegalStateException("DB unavailable")).when(failures).dead(anyString(),anyString(),anyString(),anyString());
+        assertThatThrownBy(()->new KafkaFailureRecovery(failures,json).accept(
+                new ConsumerRecord<String,Object>("updates",0,1,"key",Map.of("event","value")),new RuntimeException()))
+                .isInstanceOf(IllegalStateException.class);
+    }
     @Test void rabbitConfirmMustBeAckedAndRouted() throws Exception {
         var rabbit=mock(RabbitTemplate.class);
         var publisher=new ConfirmedPublisher(rabbit,mock(KafkaTemplate.class),mock(SimpMessagingTemplate.class),json);

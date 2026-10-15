@@ -205,6 +205,10 @@ class MessagingIntegrationTest {
         var redis=new RedisConfig().redisTemplate(factory); String stream="pr2:"+UUID.randomUUID();
         String session=UUID.randomUUID().toString();
         try {
+            var groups=new com.example.notesWeb.exception.RedisStreamGroup(redis);
+            ReflectionTestUtils.invokeMethod(groups,"createGroup",stream+":empty","test");
+            ReflectionTestUtils.invokeMethod(groups,"createGroup",stream+":empty","test");
+            assertThat(redis.opsForStream().size(stream+":empty")).isZero();
             var id=redis.opsForStream().add(StreamRecords.newRecord().in(stream).ofMap(Map.<Object,Object>of("value","payload")));
             redis.opsForStream().createGroup(stream,ReadOffset.from("0-0"),"test");
             var records=redis.opsForStream().read(Consumer.from("test","crashed"),StreamReadOptions.empty().count(1),StreamOffset.create(stream,ReadOffset.lastConsumed()));
@@ -226,6 +230,6 @@ class MessagingIntegrationTest {
             assertThat(redis.getExpire("login:result:"+session)).isBetween(1L,120L);
             redis.delete("login:result:"+session); assertThat(auth.completed(session)).isTrue();
             auth.release(session,lease);
-        } finally { redis.delete(List.of(stream,"login:result:"+session,"login:completed:"+session,"login:lease:"+session)); factory.destroy(); }
+        } finally { redis.delete(List.of(stream,stream+":empty","login:result:"+session,"login:completed:"+session,"login:lease:"+session)); factory.destroy(); }
     }
 }
