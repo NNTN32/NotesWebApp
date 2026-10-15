@@ -47,7 +47,7 @@ public class AuthService {
     }
 
     //Logic handle request register user
-    public String register(AuthRequest authRequest){
+    public String register(com.example.notesWeb.dtos.RegisterRequest authRequest){
         if(userRepo.existsByUsername(authRequest.getUsername())){
             throw new FailedException("Username has already existed!");
         }
@@ -56,7 +56,7 @@ public class AuthService {
         user.setUsername(authRequest.getUsername());
         user.setEmail(authRequest.getEmail());
         user.setPassword(passwordEncoder.encode(authRequest.getPassword()));
-        user.setRole(authRequest.getRole() != null ? authRequest.getRole() : Role.USER);
+        user.setRole(Role.USER);
 
         userRepo.save(user); //only commit when method ended OK <-> fail → rollback user
         return "User registered successfully";
@@ -108,7 +108,9 @@ public class AuthService {
 
     //Logic tracking time refresh key token
     public AuthResponse refresh (String oldRS) {
-        //get user from RS (even rs has expired from jwt)
+        if (!tokenProvider.validateRefreshToken(oldRS)) {
+            throw new FailedException("Invalid or expired refresh token");
+        }
         String username = tokenProvider.getUserFromJwt(oldRS);
         String sessionKey = getSessionKey(username, oldRS);
         String graceKey = "grace:" + username + ":" + oldRS;
@@ -168,6 +170,7 @@ public class AuthService {
 
     public void logOut (String oldRs) {
         try {
+            if (!tokenProvider.validateRefreshToken(oldRs)) return;
             String userName = tokenProvider.getUserFromJwt(oldRs);
             String sessionKey = getSessionKey(userName, oldRs);
             String graceKey = "grace:" + userName + ":" + oldRs;

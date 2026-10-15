@@ -81,9 +81,6 @@ public class jwtProvider {
                     .build()
                     .parseSignedClaims(token)
                     .getPayload();
-        }catch (ExpiredJwtException e){
-            //If token expired, it still could claim to refresh
-            return e.getClaims();
         }catch (Exception exception) {
             throw new IllegalArgumentException("Invalid token");
         }
@@ -118,17 +115,27 @@ public class jwtProvider {
         return expiration.before(new Date());
     }
 
-    //Check token validate
-    public boolean validateToken(String token){
-        try{
-            Jwts.parser().verifyWith(getSignKey()).build()
-                    .parseSignedClaims(token);
-            return true;
-        }catch (ExpiredJwtException e){
-            log.warn("Token expired");
-        }catch (Exception e) {
-            log.error("Token invalid");
-        }return false;
+    // API authentication accepts access tokens only, never rotation tokens.
+    public boolean validateToken(String token) {
+        return validateType(token, "Access");
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validateType(token, "Rotation");
+    }
+
+    private boolean validateType(String token, String type) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return type.equals(claims.get(claim_Type, String.class))
+                    && claims.getExpiration() != null
+                    && claims.getExpiration().after(new Date())
+                    && claims.getSubject() != null && !claims.getSubject().isBlank()
+                    && UUID.fromString(claims.get(claim_Id, String.class)) != null
+                    && Role.valueOf(claims.get(claim_Role, String.class)) != null;
+        } catch (Exception ignored) {
+            return false;
+        }
     }
 
     public long getRemainingTime(String token) {

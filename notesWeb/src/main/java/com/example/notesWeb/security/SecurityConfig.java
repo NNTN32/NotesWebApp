@@ -36,31 +36,13 @@ public class SecurityConfig {
                 })
                 //Stateless configuration for JWT
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, error) -> response.sendError(401)))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/notes/creates",
-                                "/notes/listNotes",
-                                "/notes/{noteID}",
-                                "/notes/delete/{noteID}",
-                                "/notes/update/{noteID}",
-                                "/media/uploads/{postID}",
-                                "/media/delete/{mediaID}",
-                                "/todo/createList",
-                                "/todo/update/{todoID}",
-                                "/todo/listUser/{userId}",
-                                "/todo/delete/{idList}",
-                                "/todo/listUpdate/{idList}",
-                                "/reminder/set-time/{idListTodo}"
-                        ).hasRole("USER")
-                        .requestMatchers("/ws/**",
-                                "/actuator/**",
-                                "/v3/api-docs/**",
-                                "/swagger-ui/**",
-                                "/swagger-ui.html",
-                                "/api/auth/**",
-                                "/notes/**",
-                                "/media/**",
-                                "/todo/**",
-                                "/reminder/**","/").permitAll()
+                        .requestMatchers("/ws/**", "/api/auth/**", "/v3/api-docs/**",
+                                "/swagger-ui/**", "/swagger-ui.html", "/").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/notes/**", "/media/**", "/todo/**", "/reminder/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new jwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);

@@ -11,7 +11,9 @@ import java.util.UUID;
 @AllArgsConstructor
 @Getter
 @Builder
-public class AuthResponse {
+public class AuthResponse implements java.security.Principal {
+    @Override
+    public String getName() { return username; }
     private String token;
     private String rotationSecret;
     private UUID id;

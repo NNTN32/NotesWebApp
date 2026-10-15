@@ -2,6 +2,8 @@ package com.example.notesWeb.controller.TodoList;
 
 
 import com.example.notesWeb.config.jwtProvider;
+import com.example.notesWeb.dtos.AuthResponse;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.example.notesWeb.dtos.TodoListDto.ListRequest;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.todoLists.ListTodo;
@@ -102,7 +104,8 @@ public class ListController {
     //API Get List to do of user
     @Operation(summary = "User get their own todo lists")
     @GetMapping("/listUser/{userId}")
-    public ResponseEntity<?> getList(@PathVariable UUID userId){
+    public ResponseEntity<?> getList(@PathVariable UUID userId, @AuthenticationPrincipal AuthResponse currentUser){
+        if (!userId.equals(currentUser.getId())) return ResponseEntity.status(403).body("Todo access denied");
         try{
             List<ListTodo> todoList = taskListService.getAllTodoList(userId);
             return ResponseEntity.ok(todoList);
@@ -114,9 +117,11 @@ public class ListController {
     //API Delete list to do of user
     @Operation(summary = "User delete their own todo lists")
     @DeleteMapping("/delete/{idList}")
-    public ResponseEntity<?> deleteList(@PathVariable UUID idList, @RequestParam UUID idUser){
+    public ResponseEntity<?> deleteList(@PathVariable UUID idList,
+            @RequestParam(required = false) UUID idUser, @AuthenticationPrincipal AuthResponse currentUser){
+        if (idUser != null && !idUser.equals(currentUser.getId())) return ResponseEntity.status(403).body("Todo access denied");
         try{
-            taskListService.deleteList(idList, idUser);
+            taskListService.deleteList(idList, currentUser.getId());
             return ResponseEntity.ok("List has been deleted successfully !");
         }catch (IllegalArgumentException e){
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage() + "Can not find Lists to delete!");
