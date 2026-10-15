@@ -18,6 +18,11 @@ public class MediaNoteController {
     private final TaskMediaService taskMediaService;
     private final MediaRedisProducer mediaRedisProducer;
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<?> accessDenied() {
+        return ResponseEntity.status(403).body("Access denied");
+    }
+
     @PostMapping(value = "/uploads/{postID}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> upload(@PathVariable UUID postID,
             @AuthenticationPrincipal AuthResponse currentUser,

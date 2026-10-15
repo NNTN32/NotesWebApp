@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest
 @ContextConfiguration(classes = {ListController.class, MediaNoteController.class, NoteController.class,
-        SecurityConfig.class, webCORSConfig.class, AuthorizationErrors.class})
+        SecurityConfig.class, webCORSConfig.class})
 class HttpSecurityRegressionTest {
     @Autowired MockMvc mvc;
     @MockitoBean jwtProvider tokens;
