@@ -21,9 +21,13 @@ public class MediaRedisProducer {
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
     private final SecurityUploadService securityUploadService;
+    private final com.example.notesWeb.repository.noteRepo.NotesRepo notesRepo;
     private static final String key_STREAM = "media:create:stream";
 
-    public void sendMediaRequest(String username, UUID postID, MultipartFile file){
+    public void sendMediaRequest(String username, UUID userId, UUID postID, MultipartFile file){
+        if (!notesRepo.existsByIdAndUserId(postID, userId)) {
+            throw new org.springframework.security.access.AccessDeniedException("Note access denied");
+        }
         try{
             Map uploadResult = securityUploadService.uploadCloudinary(file);
 

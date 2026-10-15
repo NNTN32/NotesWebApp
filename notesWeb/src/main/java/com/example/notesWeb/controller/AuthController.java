@@ -51,7 +51,7 @@ public class AuthController {
     //Api Handle Register
     @Operation(summary = "User Register")
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthRequest request){
+    public ResponseEntity<?> register(@RequestBody com.example.notesWeb.dtos.RegisterRequest request){
         try{
             String result = authService.register(request);
             return ResponseEntity.ok(result);

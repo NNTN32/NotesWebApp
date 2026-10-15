@@ -1,6 +1,7 @@
 package com.example.notesWeb.exception.realtime;
 
-import org.junit.jupiter.api.Order;
+import lombok.RequiredArgsConstructor;
+import com.example.notesWeb.security.StompSecurityInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
@@ -13,7 +14,18 @@ import org.springframework.beans.factory.annotation.Value;
 
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final StompSecurityInterceptor security;
+
+    @Value("${app.allowed-origins:http://localhost:5173,https://nhannotes.id.vn}")
+    private String allowedOrigins;
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(security);
+    }
 
     @Value("${spring.rabbitmq.stomp.relay-host}")
     private String relayHost;
@@ -44,6 +56,6 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry){
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns("*").withSockJS();
+                .setAllowedOrigins(allowedOrigins.split(",")).withSockJS();
     }
 }

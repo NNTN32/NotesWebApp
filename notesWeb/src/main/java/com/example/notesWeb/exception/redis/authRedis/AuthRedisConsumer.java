@@ -53,7 +53,7 @@ public class AuthRedisConsumer extends RedisStreamConsume {
     @Override
     protected void handleMessage(MapRecord<String, Object, Object> record) {
         Map<Object, Object> r = record.getValue();
-        log.info("Raw record from Redis: {}", r);
+        log.debug("Processing authentication request");
 
         String username = (String) r.get("username");
         String password = (String) r.get("password");
@@ -109,7 +109,7 @@ public class AuthRedisConsumer extends RedisStreamConsume {
             //Without discrimination auth fail & system fail
         }
         catch (FailedException e) {
-            log.warn("Auth failed for user {} - {}", username, e.getMessage());
+            log.warn("Authentication failed");
 
             messagingTemplate.convertAndSendToUser(
                     sessionId,
@@ -117,7 +117,7 @@ public class AuthRedisConsumer extends RedisStreamConsume {
                     new AuthResponse(null, null, null, username, null, Status.FAIL, e.getMessage())
             );
         }catch (Exception e) {
-            log.error("System error while auth {}", record.getId(), e);
+            log.error("Authentication processing failed");
             messagingTemplate.convertAndSendToUser(
                     sessionId,
                     "/queue/login-result",

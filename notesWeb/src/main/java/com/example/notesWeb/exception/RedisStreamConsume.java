@@ -65,7 +65,7 @@ public abstract class RedisStreamConsume {
                         executorService.submit(() -> processSafely(record))
                 );
             }catch (Exception e){
-                log.error("Redis stream error [{}]: {}", streamKey, e.getMessage());
+                log.error("Redis stream read failed [{}]", streamKey);
                 sleep(2000);
             }
         }
@@ -77,7 +77,7 @@ public abstract class RedisStreamConsume {
             redisTemplate.opsForStream()
                     .acknowledge(streamKey, group, record.getId());
         }catch (Exception e) {
-            log.error("Failed to process record {}: {}", record.getId(), e.getMessage(), e);
+            log.error("Redis stream processing failed [{}]", streamKey);
         }
     }
 
@@ -116,7 +116,7 @@ public abstract class RedisStreamConsume {
             log.info("Recovered {} pending messages from {}", pending.size(), streamKey);
 
         } catch (Exception e) {
-            log.warn("Failed to recover pending messages from {}", streamKey, e);
+            log.warn("Redis pending recovery failed [{}]", streamKey);
         }
     }
 

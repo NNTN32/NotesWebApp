@@ -77,6 +77,12 @@ jobs:
           done
           test "$ready" = true
           bash ./mvnw -B test '-Dtest=*IntegrationTest,NotesWebApplicationTests' -Dspring.profiles.active=test
+      - name: Diagnose disposable application failures
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --tail=200 notes-app
+          curl --silent --show-error --max-time 10 --include http://localhost:8081/v3/api-docs || true
       - name: Upload test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -115,6 +121,7 @@ jobs:
     # release-policy is skipped on feature pushes; PRs never log in or publish.
     if: >-
       always() && needs.build-and-test.result == 'success' && github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, '[skip deploy]') &&
       (startsWith(github.ref, 'refs/heads/feature/') ||
        (github.ref == 'refs/heads/main' && needs.release-policy.outputs.merged == 'true'))
     runs-on: ubuntu-latest

@@ -27,7 +27,7 @@ public class AuthRedisProducer {
         data.put("sessionId", authRequest.getSessionID());
 
         //Log check result
-        System.out.println("Sending request to Redis Stream: " + data);
+        // Never log the authentication payload: it contains credentials.
         redisTemplate.opsForStream()
                 .add(StreamRecords.newRecord()
                         .in(STREAM_KEY)
