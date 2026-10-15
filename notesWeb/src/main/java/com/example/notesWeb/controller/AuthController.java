@@ -27,6 +27,13 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    @ExceptionHandler(org.springframework.web.ErrorResponseException.class)
+    public ResponseEntity<?> rateLimitResponse(org.springframework.web.ErrorResponseException error) {
+        // Write the response directly: an anonymous /error redispatch would replace 429 with 401.
+        return ResponseEntity.status(error.getStatusCode()).headers(error.getHeaders())
+                .body(Map.of("error", error.getStatusCode().value() == 429 ? "rate_limited" : "temporarily_unavailable"));
+    }
+
     @Autowired
     private ApiRateLimiter rateLimiter;
     @Autowired
