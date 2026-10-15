@@ -7,6 +7,8 @@ import com.example.notesWeb.service.AuthService;
 import com.example.notesWeb.service.FailedException;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import com.example.notesWeb.security.ApiRateLimiter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,6 +27,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+    @Autowired
+    private ApiRateLimiter rateLimiter;
     @Autowired
     private AuthService authService;
 
@@ -63,7 +67,8 @@ public class AuthController {
     //Api handle Login sending request Redis
     @Operation(summary = "User Login")
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AuthRequest authRequest){
+    public ResponseEntity<?> login(@RequestBody AuthRequest authRequest, HttpServletRequest request){
+        rateLimiter.login(request, authRequest.getUsername());
         try{
             //Using UUID prevent same id user login
             String sessionId = UUID.randomUUID().toString();

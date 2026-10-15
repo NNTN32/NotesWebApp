@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class HttpSecurityRegressionTest {
     @Autowired MockMvc mvc;
     @MockitoBean jwtProvider tokens;
+    @MockitoBean ApiRateLimiter rateLimiter;
     @MockitoBean TodoListService todos;
     @MockitoBean TaskListService tasks;
     @MockitoBean UserRepo users;

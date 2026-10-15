@@ -29,7 +29,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, jwtProvider jwtProvider ) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, jwtProvider jwtProvider,
+            ApiRateLimiter rateLimiter) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> {
@@ -45,7 +46,8 @@ public class SecurityConfig {
                         .requestMatchers("/notes/**", "/media/**", "/todo/**", "/reminder/**").hasRole("USER")
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(new jwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(new jwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(new ApiRateLimitFilter(rateLimiter), jwtAuthenticationFilter.class);
         return http.build();
     }
 }
