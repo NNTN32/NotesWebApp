@@ -12,10 +12,6 @@ import java.util.UUID;
 public class FailureLedger {
     private final JdbcTemplate jdbc;
     private final Outbox outbox;
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void dead(String key, String source, String payload, String reason) {
-        retain(key,source,payload,reason);
-    }
     private void retain(String key, String source, String payload, String reason) {
         jdbc.update("""
                 INSERT INTO message_dead_letter(message_key,source,payload,reason) VALUES (?,?,?,?)
@@ -48,5 +44,24 @@ public class FailureLedger {
                 INSERT INTO message_attempt(message_key,attempts) VALUES (?,1)
                 ON CONFLICT (message_key) DO UPDATE SET attempts=message_attempt.attempts+1 RETURNING attempts
                 """, Integer.class, key);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void noteFailure(String key, String payload, String noteId, String deliveryId) {
+        if (nextAttempt(key) < 5) {
+            appendNoteRetry(payload,noteId,deliveryId);
+            return;
+        }
+        retain(key,"rabbit:note-updates",payload,"Note update failed; retained before ACK");
+        outbox.append(UUID.nameUUIDFromBytes(("dead:"+key).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                "RABBIT","notes.events.v2","dead",payload,Instant.now());
+    }
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void deferNote(String payload,String noteId,String deliveryId) {
+        appendNoteRetry(payload,noteId,deliveryId);
+    }
+    private void appendNoteRetry(String payload,String noteId,String deliveryId) {
+        outbox.append(UUID.nameUUIDFromBytes(("note-retry:"+deliveryId).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                "RABBIT","notes.note-updates.v1",noteId,payload,Instant.now().plusSeconds(1));
     }
 }

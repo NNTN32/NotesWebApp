@@ -1,6 +1,8 @@
 package com.example.notesWeb.exception.realtime;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
+import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -58,6 +60,25 @@ public class rabbitMQConfig {
         return new Declarables(exchange, ready, dead,
                 BindingBuilder.bind(ready).to(exchange).with("reminder.ready"),
                 BindingBuilder.bind(dead).to(exchange).with("dead"));
+    }
+
+    @Bean
+    public Declarables noteUpdateQueue() {
+        TopicExchange exchange=new TopicExchange("notes.note-updates.v1",true,false);
+        Queue queue=QueueBuilder.durable("notes.note-updates.v1").quorum()
+                .withArgument("x-delivery-limit",-1).withArgument("x-single-active-consumer",true).build();
+        return new Declarables(exchange,queue,BindingBuilder.bind(queue).to(exchange).with("#"));
+    }
+
+    @Bean
+    public SimpleRabbitListenerContainerFactory noteUpdateListenerFactory(
+            SimpleRabbitListenerContainerFactoryConfigurer configurer,
+            ConnectionFactory connectionFactory) {
+        var factory=new SimpleRabbitListenerContainerFactory();
+        configurer.configure(factory,connectionFactory);
+        // shortcut: one active consumer limits throughput; partition queues when measured load requires it.
+        factory.setPrefetchCount(1);
+        return factory;
     }
 
     // JSON converter

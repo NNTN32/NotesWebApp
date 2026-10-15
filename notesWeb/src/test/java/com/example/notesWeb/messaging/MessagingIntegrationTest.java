@@ -23,7 +23,6 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.*;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import javax.sql.DataSource;
 import java.time.*;
@@ -139,9 +138,9 @@ class MessagingIntegrationTest {
     @Test void failedEarlierCommandBlocksOnlyItsOwnNote() throws Exception {
         UUID first=UUID.randomUUID(), second=UUID.randomUUID(), unrelated=UUID.randomUUID();
         tx.executeWithoutResult(t->{
-            outbox().append(first,"KAFKA","updates","note-a","{}",Instant.now().minusSeconds(2));
-            outbox().append(second,"KAFKA","updates","note-a","{}",Instant.now().minusSeconds(1));
-            outbox().append(unrelated,"KAFKA","updates","note-b","{}",Instant.now());
+            outbox().append(first,"NOTE_UPDATE","notes.note-updates.v1","note-a","{}",Instant.now().minusSeconds(2));
+            outbox().append(second,"NOTE_UPDATE","notes.note-updates.v1","note-a","{}",Instant.now().minusSeconds(1));
+            outbox().append(unrelated,"NOTE_UPDATE","notes.note-updates.v1","note-b","{}",Instant.now());
         });
         var publisher=context.getBean(ConfirmedPublisher.class);
         doThrow(new IllegalStateException("broker down")).when(publisher).send(eq(first),anyString(),anyString(),anyString(),anyString());
@@ -174,6 +173,36 @@ class MessagingIntegrationTest {
         assertThat(failures().redisFailure("auth-failure","auth:login:stream","12-0")).isTrue();
         assertThat(jdbc.queryForObject("SELECT payload FROM message_dead_letter WHERE message_key='auth-failure'",String.class)).isEqualTo("12-0");
     }
+    @Test void kafkaCutoverPreservesPendingPayloadIdentityAndPublishedHistory() throws Exception {
+        UUID pending=UUID.randomUUID(),published=UUID.randomUUID(),note=UUID.randomUUID();
+        var event=new com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent(note,UUID.randomUUID(),"alice",new com.example.notesWeb.dtos.NoteDto.NoteRequest("body","title"));
+        event.setEventId(pending); String payload=new ObjectMapper().writeValueAsString(event);
+        tx.executeWithoutResult(s->{
+            outbox().append(pending,"KAFKA","note-updates",note.toString(),payload,Instant.now());
+            outbox().append(published,"KAFKA","note-updates",note.toString(),"history",Instant.now());
+        });
+        jdbc.update("UPDATE message_outbox SET status='PUBLISHED' WHERE id=?",published);
+        assertThatThrownBy(()->new MessagingConfig().messagingSchema(source,false).afterPropertiesSet()).isInstanceOf(IllegalStateException.class);
+        String script=new String(new ClassPathResource("db/migrate-note-updates-to-rabbit.sql").getInputStream().readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+        jdbc.execute(script); jdbc.execute(script);
+        assertThat(jdbc.queryForObject("SELECT payload FROM message_outbox WHERE id=?",String.class,pending)).isEqualTo(payload);
+        assertThat(jdbc.queryForObject("SELECT kind FROM message_outbox WHERE id=?",String.class,pending)).isEqualTo("NOTE_UPDATE");
+        assertThat(jdbc.queryForObject("SELECT kind FROM message_outbox WHERE id=?",String.class,published)).isEqualTo("KAFKA");
+        new MessagingConfig().messagingSchema(source,false).afterPropertiesSet();
+    }
+    @Test void invalidLegacyCutoverFailsWithoutPartiallyConvertingCommands() throws Exception {
+        UUID id=UUID.randomUUID();
+        var valid=new com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent(UUID.randomUUID(),UUID.randomUUID(),"alice",new com.example.notesWeb.dtos.NoteDto.NoteRequest("body","valid"));
+        String payload=new ObjectMapper().writeValueAsString(valid);
+        tx.executeWithoutResult(s->{
+            outbox().append(valid.getEventId(),"KAFKA","note-updates",valid.getNoteID().toString(),payload,Instant.now());
+            outbox().append(id,"KAFKA","note-updates","note","{}",Instant.now());
+        });
+        String script=new String(new ClassPathResource("db/migrate-note-updates-to-rabbit.sql").getInputStream().readAllBytes(),java.nio.charset.StandardCharsets.UTF_8);
+        assertThatThrownBy(()->jdbc.execute(script)).isInstanceOf(org.springframework.dao.DataAccessException.class);
+        assertThat(jdbc.queryForObject("SELECT kind FROM message_outbox WHERE id=?",String.class,id)).isEqualTo("KAFKA");
+        assertThat(jdbc.queryForObject("SELECT kind FROM message_outbox WHERE id=?",String.class,valid.getEventId())).isEqualTo("KAFKA");
+    }
     @Test void actualRabbitConfirmsReturnsAndRedeliversAfterLostAck() throws Exception {
         var cf=new CachingConnectionFactory(required("MESSAGING_TEST_RABBIT_HOST"),Integer.parseInt(required("MESSAGING_TEST_RABBIT_PORT")));
         cf.setUsername(required("MESSAGING_TEST_RABBIT_USERNAME")); cf.setPassword(required("MESSAGING_TEST_RABBIT_PASSWORD"));
@@ -184,7 +213,7 @@ class MessagingIntegrationTest {
             rabbitAdmin.declareExchange(new DirectExchange(name));
             rabbitAdmin.declareQueue(QueueBuilder.durable(name).quorum().build());
             rabbitAdmin.declareBinding(new Binding(name,Binding.DestinationType.QUEUE,name,"ready",null));
-            var publisher=new ConfirmedPublisher(template,mock(KafkaTemplate.class),mock(SimpMessagingTemplate.class),new ObjectMapper());
+            var publisher=new ConfirmedPublisher(template,mock(SimpMessagingTemplate.class),new ObjectMapper());
             assertThatThrownBy(()->publisher.send(UUID.randomUUID(),"RABBIT",name,"missing","{}")).isInstanceOf(IllegalStateException.class);
             UUID id=UUID.randomUUID(); publisher.send(id,"RABBIT",name,"ready","{}");
             var connection=cf.createConnection(); var first=connection.createChannel(false);

@@ -4,7 +4,7 @@ import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.controller.Notes.*;
 import com.example.notesWeb.controller.TodoList.ListController;
 import com.example.notesWeb.dtos.AuthResponse;
-import com.example.notesWeb.exception.kafka.kafkaNoteProducer;
+import com.example.notesWeb.messaging.NoteUpdatePublisher;
 import com.example.notesWeb.exception.redis.noteRedis.NoteRedisProducer;
 import com.example.notesWeb.exception.redis.mediaNoteRedis.MediaRedisProducer;
 import com.example.notesWeb.repository.*;
@@ -36,7 +36,7 @@ class HttpSecurityRegressionTest {
     @MockitoBean UserRepo users;
     @MockitoBean TaskMediaService media;
     @MockitoBean MediaRedisProducer uploads;
-    @MockitoBean kafkaNoteProducer kafka;
+    @MockitoBean NoteUpdatePublisher noteUpdates;
     @MockitoBean CreateNoteService create;
     @MockitoBean TaskNoteService notes;
     @MockitoBean NoteRedisProducer noteQueue;
@@ -77,7 +77,7 @@ class HttpSecurityRegressionTest {
         mvc.perform(get("/notes/"+resource).with(authentication(alice()))).andExpect(status().isNotFound());
         mvc.perform(put("/notes/update/"+resource).contentType("application/json").content("{\"title\":\"hijack\"}")
                 .with(authentication(alice()))).andExpect(status().isForbidden());
-        verifyNoInteractions(kafka);
+        verifyNoInteractions(noteUpdates);
     }
     @Test void forgedOriginsCannotReadCredentialedResponses() throws Exception {
         mvc.perform(options("/api/auth/refresh").header("Origin", "https://evil.example")
@@ -85,5 +85,14 @@ class HttpSecurityRegressionTest {
         mvc.perform(options("/api/auth/refresh").header("Origin", "https://nhannotes.id.vn")
                 .header("Access-Control-Request-Method", "POST"))
                 .andExpect(status().isOk()).andExpect(header().string("Access-Control-Allow-Origin", "https://nhannotes.id.vn"));
+    }
+    @Test void ownUpdateReturnsAcceptedOnlyAfterDurableCommandAcceptance() throws Exception {
+        when(noteRepo.existsByIdAndUserId(resource,alice)).thenReturn(true);
+        mvc.perform(put("/notes/update/"+resource).contentType("application/json").content("{\"title\":\"edit\"}")
+                .with(authentication(alice()))).andExpect(status().isAccepted()).andExpect(content().string("Note update accepted"));
+        verify(noteUpdates).sendNoteUpdate(argThat(e->e.getEventId()!=null && e.getUserID().equals(alice) && e.getUsername().equals("alice")));
+        doThrow(new IllegalStateException("DB unavailable")).when(noteUpdates).sendNoteUpdate(any());
+        mvc.perform(put("/notes/update/"+resource).contentType("application/json").content("{\"title\":\"edit\"}")
+                .with(authentication(alice()))).andExpect(status().isInternalServerError());
     }
 }

@@ -1,20 +1,16 @@
 package com.example.notesWeb.messaging;
 import com.example.notesWeb.exception.RedisStreamConsume;
 import com.example.notesWeb.exception.realtime.timeEvent.messagePublish.ReminderQueueConsume;
-import com.example.notesWeb.exception.kafka.kafkaNoteConsumer;
 import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.*;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.util.ReflectionTestUtils;
 import java.util.*;
@@ -81,39 +77,9 @@ class DeliverySafetyTest {
         var order=inOrder(ledger,redis.opsForStream()); order.verify(ledger).redisFailure(anyString(),anyString(),eq("1-0"));
         order.verify(redis.opsForStream()).acknowledge("stream","group",record.getId()); consumer.shutdown();
     }
-    @Test void kafkaProcessingFailureNeverAcknowledges() {
-        var service=mock(TaskNoteService.class); var ack=mock(Acknowledgment.class);
-        var event=new NoteUpdateEvent(UUID.randomUUID(),UUID.randomUUID(),"alice",null);
-        var record=new ConsumerRecord<String,NoteUpdateEvent>("note-updates",0,1,"key",event);
-        doThrow(new IllegalStateException()).when(service).updateOnce(anyString(),eq(event));
-        assertThatThrownBy(()->new kafkaNoteConsumer(service).consume(record,ack)).isInstanceOf(IllegalStateException.class);
-        verifyNoInteractions(ack);
-    }
-    @Test void kafkaMalformedBytesAreRetainedInsteadOfLosingOriginalPayload() throws Exception {
-        var failures=mock(FailureLedger.class);
-        byte[] raw="broken-json".getBytes(StandardCharsets.UTF_8);
-        var decoder=new org.springframework.kafka.support.serializer.ErrorHandlingDeserializer<>(
-                new org.springframework.kafka.support.serializer.JsonDeserializer<>(NoteUpdateEvent.class));
-        var headers=new org.apache.kafka.common.header.internals.RecordHeaders();
-        assertThat(decoder.deserialize("updates",headers,raw)).isNull();
-        var record=new ConsumerRecord<String,Object>("updates",1,9,"note",null);
-        headers.forEach(h->record.headers().add(h));
-        new KafkaFailureRecovery(failures,json).accept(record,new IllegalArgumentException());
-        var saved=org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(failures).dead(eq("kafka:updates:1:9"),eq("kafka:updates"),saved.capture(),anyString());
-        assertThat(java.util.Base64.getDecoder().decode(json.readTree(saved.getValue()).get("rawValueBase64").asText())).isEqualTo(raw);
-        decoder.close();
-    }
-    @Test void kafkaRecoveryFailurePropagatesRatherThanCompletingOffsetRecovery() {
-        var failures=mock(FailureLedger.class);
-        doThrow(new IllegalStateException("DB unavailable")).when(failures).dead(anyString(),anyString(),anyString(),anyString());
-        assertThatThrownBy(()->new KafkaFailureRecovery(failures,json).accept(
-                new ConsumerRecord<String,Object>("updates",0,1,"key",Map.of("event","value")),new RuntimeException()))
-                .isInstanceOf(IllegalStateException.class);
-    }
     @Test void rabbitConfirmMustBeAckedAndRouted() throws Exception {
         var rabbit=mock(RabbitTemplate.class);
-        var publisher=new ConfirmedPublisher(rabbit,mock(KafkaTemplate.class),mock(SimpMessagingTemplate.class),json);
+        var publisher=new ConfirmedPublisher(rabbit,mock(SimpMessagingTemplate.class),json);
         doAnswer(call->{ CorrelationData c=call.getArgument(3); c.getFuture().complete(new CorrelationData.Confirm(false,"nack")); return null; })
                 .when(rabbit).send(anyString(),anyString(),any(Message.class),any(CorrelationData.class));
         assertThatThrownBy(()->publisher.send(UUID.randomUUID(),"RABBIT","events","ready","{}")).isInstanceOf(IllegalStateException.class);

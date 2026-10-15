@@ -42,7 +42,6 @@ jobs:
       JWT_REFRESH: '604800000'
       REDIS_HOST: localhost
       REDIS_PORT: '6380'
-      KAFKA_BOOTSTRAP_SERVERS: localhost:9095
       RABBIT_HOST: localhost
       RABBIT_PORT: '5673'
       RABBIT_USERNAME: ci_worker
@@ -90,7 +89,7 @@ jobs:
         if: failure()
         run: |
           docker compose ps -a
-          docker compose logs --no-color --tail=200 notes-app notes-kafka notes-rabbitmq notes-redis
+          docker compose logs --no-color --tail=200 notes-app notes-rabbitmq notes-redis
           curl --silent --show-error --max-time 10 --include http://localhost:8081/v3/api-docs || true
       - name: Upload test reports
         if: always()

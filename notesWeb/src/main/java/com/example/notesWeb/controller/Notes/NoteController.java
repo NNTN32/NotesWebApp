@@ -1,7 +1,7 @@
 package com.example.notesWeb.controller.Notes;
 
 import com.example.notesWeb.dtos.AuthResponse;
-import com.example.notesWeb.exception.kafka.kafkaNoteProducer;
+import com.example.notesWeb.messaging.NoteUpdatePublisher;
 import com.example.notesWeb.config.jwtProvider;
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
@@ -32,7 +32,7 @@ import java.util.UUID;
 @RequestMapping("/notes")
 public class NoteController {
     @Autowired
-    private kafkaNoteProducer kafkaNoteProducer;
+    private NoteUpdatePublisher noteUpdates;
 
     @Autowired
     private CreateNoteService createNoteService;
@@ -148,11 +148,9 @@ public class NoteController {
             if (!ownerNote) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You are not allowed to edit this note!");
             }
-            //Notes updated = taskNoteService.updateNote(noteRequest, noteID, userID);
             NoteUpdateEvent event = new NoteUpdateEvent(noteID, currentUser.getId(), currentUser.getUsername(), noteRequest);
-            //return ResponseEntity.ok(updated);
-            kafkaNoteProducer.sendNoteUpdate(event);
-            return ResponseEntity.accepted().body("Updated request submitted to Kafka");
+            noteUpdates.sendNoteUpdate(event);
+            return ResponseEntity.accepted().body("Note update accepted");
 
         }catch (AccessDeniedException e){
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage() + "User doesn't have authority to update Notes!");

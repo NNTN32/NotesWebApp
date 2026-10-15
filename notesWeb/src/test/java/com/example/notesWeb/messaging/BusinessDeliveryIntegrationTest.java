@@ -1,6 +1,23 @@
 package com.example.notesWeb.messaging;
 
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
+import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
+import com.example.notesWeb.dtos.NoteDto.NoteCache;
+import com.example.notesWeb.service.takeNotes.TaskNoteService;
+import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.amqp.core.TopicExchange;
+import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.core.Message;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.rabbitmq.client.Channel;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import com.example.notesWeb.dtos.TodoListDto.notificatePopup.ReminderDelay;
 import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.Role;
@@ -62,6 +79,13 @@ class BusinessDeliveryIntegrationTest {
         @Bean CreateNoteService create(Inbox inbox,UserRepo users,NotesRepo notes,IdGenerateRepo ids) { return new CreateNoteService(inbox,users,notes,ids); }
         @Bean ObjectMapper json() { return spy(new ObjectMapper().findAndRegisterModules()); }
         @Bean ReminderDelivery delivery(TodoRepo todos,Inbox inbox,Outbox outbox,JdbcTemplate j,ObjectMapper json) { return new ReminderDelivery(todos,inbox,outbox,j,json); }
+        @Bean NoteUpdatePublisher updates(Outbox outbox,ObjectMapper json,JdbcTemplate j) { return new NoteUpdatePublisher(outbox,json,j); }
+        @Bean TaskNoteService tasks(Inbox inbox,Outbox outbox,UserRepo users,NotesRepo notes,ObjectMapper json) {
+            return new TaskNoteService(inbox,outbox,users,notes,json);
+        }
+        @Bean FailureLedger failures(JdbcTemplate j,Outbox outbox) { return new FailureLedger(j,outbox); }
+        @Bean ConfirmedPublisher transport() { return mock(ConfirmedPublisher.class); }
+        @Bean OutboxRelay relay(JdbcTemplate j,ConfirmedPublisher transport) { return new OutboxRelay(j,transport); }
     }
     @AfterEach void cleanup() { if(context!=null) context.close(); if(admin!=null) admin.execute("DROP SCHEMA "+schema+" CASCADE"); }
     User user() {
@@ -99,5 +123,116 @@ class BusinessDeliveryIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM reminder_notification",Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM message_outbox WHERE kind='STOMP'",Integer.class)).isEqualTo(1);
         assertThat(todos.findById(todo.getIdList()).orElseThrow().getReminded()).isTrue();
+    }
+
+    NoteUpdateEvent command(String title) {
+        var owner=user();
+        context.getBean(CreateNoteService.class).createOnce("create-fixture",new NoteRequest("body","original"),owner.getUsername());
+        var note=context.getBean(NotesRepo.class).findAll().getFirst();
+        return new NoteUpdateEvent(note.getId(),owner.getId(),owner.getUsername(),new NoteRequest("edited",title));
+    }
+    NoteUpdateConsumer consumer() {
+        return new NoteUpdateConsumer(context.getBean(TaskNoteService.class),
+                context.getBean(FailureLedger.class),context.getBean(ObjectMapper.class),jdbc);
+    }
+    Message envelope(NoteUpdateEvent event) throws Exception {
+        var properties=new MessageProperties(); properties.setDeliveryTag(1);
+        return new Message(context.getBean(ObjectMapper.class).writeValueAsBytes(event),properties);
+    }
+    @Test void noteUpdateRollbackRetriesAndLostAckDoesNotDuplicateBusinessOrNotification() throws Exception {
+        var event=command("changed"); var publisher=context.getBean(NoteUpdatePublisher.class); publisher.sendNoteUpdate(event);
+        var json=context.getBean(ObjectMapper.class); var raw=envelope(event);
+        doThrow(new JsonProcessingException("fail notification"){}).when(json).writeValueAsString(any(NoteCache.class));
+        var channel=mock(Channel.class);
+        consumer().consume(raw,channel);
+        verify(channel).basicAck(1,false);
+        assertThat(context.getBean(NotesRepo.class).findById(event.getNoteID()).orElseThrow().getTitle()).isEqualTo("original");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_inbox WHERE message_key LIKE 'note-update:%'",Integer.class)).isZero();
+        doCallRealMethod().when(json).writeValueAsString(any(NoteCache.class));
+        doThrow(new java.io.IOException("lost ACK")).when(channel).basicAck(1,false);
+        assertThatThrownBy(()->consumer().consume(raw,channel)).isInstanceOf(java.io.IOException.class);
+        var version=context.getBean(NotesRepo.class).findById(event.getNoteID()).orElseThrow().getVersion();
+        consumer().consume(raw,mock(Channel.class));
+        assertThat(context.getBean(NotesRepo.class).findById(event.getNoteID()).orElseThrow().getVersion()).isEqualTo(version);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_outbox WHERE kind='STOMP'",Integer.class)).isEqualTo(1);
+    }
+    @Test void outOfOrderDeliveryWaitsForEarlierEditAndTerminalRedeliveryCannotOverwriteNewerEdit() throws Exception {
+        var first=command("first"); var second=new NoteUpdateEvent(first.getNoteID(),first.getUserID(),first.getUsername(),new NoteRequest("body","second"));
+        var publisher=context.getBean(NoteUpdatePublisher.class); publisher.sendNoteUpdate(first); publisher.sendNoteUpdate(second);
+        var channel=mock(Channel.class); consumer().consume(envelope(second),channel);
+        verify(channel).basicAck(1,false);
+        consumer().consume(envelope(second),mock(Channel.class));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_outbox WHERE kind='RABBIT' AND destination='notes.note-updates.v1'",Integer.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_attempt",Integer.class)).isZero();
+        var ledger=context.getBean(FailureLedger.class); String key="note-update:"+first.getEventId();
+        for(int i=0;i<5;i++) ledger.noteFailure(key,context.getBean(ObjectMapper.class).writeValueAsString(first),first.getNoteID().toString(),first.getEventId().toString());
+        consumer().consume(envelope(second),mock(Channel.class));
+        consumer().consume(envelope(first),mock(Channel.class));
+        assertThat(context.getBean(NotesRepo.class).findById(first.getNoteID()).orElseThrow().getTitle()).isEqualTo("second");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_dead_letter WHERE message_key=?",Integer.class,key)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_outbox WHERE routing_key='dead'",Integer.class)).isEqualTo(1);
+    }
+    @Test void rejectedOwnerNeverMutatesNoteAndCommandAcceptanceIsDurableWithoutBroker() throws Exception {
+        var event=command("hijacked"); var bob=new User(); bob.setId(UUID.randomUUID()); bob.setUsername("bob"); bob.setRole(Role.USER);
+        context.getBean(UserRepo.class).saveAndFlush(bob); event.setUserID(bob.getId()); event.setUsername("bob");
+        context.getBean(NoteUpdatePublisher.class).sendNoteUpdate(event);
+        assertThat(jdbc.queryForObject("SELECT kind FROM message_outbox WHERE id=?",String.class,event.getEventId())).isEqualTo("NOTE_UPDATE");
+        consumer().consume(envelope(event),mock(Channel.class));
+        assertThat(context.getBean(NotesRepo.class).findById(event.getNoteID()).orElseThrow().getTitle()).isEqualTo("original");
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM message_inbox WHERE message_key LIKE 'note-update:%'",Integer.class)).isZero();
+    }
+    @Test void actualRabbitOutboxPipelineRetriesAndAppliesEditsInOrder() throws Exception {
+        var first=command("first");
+        var second=new NoteUpdateEvent(first.getNoteID(),first.getUserID(),first.getUsername(),new NoteRequest("body","second"));
+        var third=new NoteUpdateEvent(first.getNoteID(),first.getUserID(),first.getUsername(),new NoteRequest("body","third"));
+        var publisher=context.getBean(NoteUpdatePublisher.class); publisher.sendNoteUpdate(first); publisher.sendNoteUpdate(second);
+        var cf=new CachingConnectionFactory(System.getenv("MESSAGING_TEST_RABBIT_HOST"),Integer.parseInt(System.getenv("MESSAGING_TEST_RABBIT_PORT")));
+        cf.setUsername(System.getenv("MESSAGING_TEST_RABBIT_USERNAME")); cf.setPassword(System.getenv("MESSAGING_TEST_RABBIT_PASSWORD"));
+        cf.setPublisherConfirmType(CachingConnectionFactory.ConfirmType.CORRELATED); cf.setPublisherReturns(true);
+        String name="pr3-"+UUID.randomUUID(); var admin=new RabbitAdmin(cf);
+        var template=new RabbitTemplate(cf); template.setMandatory(true);
+        var json=context.getBean(ObjectMapper.class);
+        var transport=new ConfirmedPublisher(template,mock(SimpMessagingTemplate.class),json);
+        var done=new CountDownLatch(1); var error=new AtomicReference<Throwable>();
+        var applied=new CopyOnWriteArrayList<String>();
+        try {
+            admin.declareExchange(new TopicExchange(name,true,false));
+            admin.declareQueue(QueueBuilder.durable(name).quorum().withArgument("x-single-active-consumer",true).withArgument("x-delivery-limit",-1).build());
+            admin.declareBinding(new Binding(name,Binding.DestinationType.QUEUE,name,"#",null));
+            doAnswer(call->{ transport.send(call.getArgument(0),call.getArgument(1),name,call.getArgument(3),call.getArgument(4)); return null; })
+                    .when(context.getBean(ConfirmedPublisher.class)).send(any(),anyString(),eq("notes.note-updates.v1"),anyString(),anyString());
+            doThrow(new JsonProcessingException("one transient failure"){}).doCallRealMethod().when(json).writeValueAsString(any(NoteCache.class));
+            var channel=cf.createConnection().createChannel(false); channel.basicQos(1);
+            var listener=consumer();
+            channel.basicConsume(name,false,(tag,delivery)->{
+                try {
+                    var properties=new MessageProperties(); properties.setDeliveryTag(delivery.getEnvelope().getDeliveryTag());
+                    listener.consume(new Message(delivery.getBody(),properties),channel);
+                    int processed=jdbc.queryForObject("SELECT count(*) FROM message_inbox WHERE message_key LIKE 'note-update:%'",Integer.class);
+                    if (processed>applied.size()) applied.add(context.getBean(NotesRepo.class).findById(first.getNoteID()).orElseThrow().getTitle());
+                    if (processed==3) done.countDown();
+                } catch(Throwable failure) { error.set(failure); done.countDown(); }
+            },tag->{});
+            var relay=context.getBean(OutboxRelay.class);
+            long until=System.nanoTime()+TimeUnit.SECONDS.toNanos(15);
+            boolean thirdAccepted=false;
+            while(done.getCount()>0 && System.nanoTime()<until) {
+                relay.publishNext();
+                if (!thirdAccepted && jdbc.queryForObject("SELECT count(*) FROM message_outbox WHERE kind='RABBIT' AND destination='notes.note-updates.v1'",Integer.class)>0) {
+                    publisher.sendNoteUpdate(third); thirdAccepted=true;
+                }
+                Thread.sleep(25);
+            }
+            boolean completed=done.getCount()==0;
+            assertThat(completed).withFailMessage("outbox=%s inbox=%s attempts=%s callback=%s",
+                    jdbc.queryForList("SELECT kind,status,last_error FROM message_outbox"),jdbc.queryForList("SELECT * FROM message_inbox"),
+                    jdbc.queryForList("SELECT * FROM message_attempt"),error.get()).isTrue(); assertThat(error.get()).isNull();
+            assertThat(applied).containsExactly("first","second","third");
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM message_outbox WHERE kind='STOMP'",Integer.class)).isEqualTo(3);
+            assertThat(jdbc.queryForObject("SELECT attempts FROM message_attempt WHERE message_key=?",Integer.class,"note-update:"+first.getEventId())).isEqualTo(1);
+            channel.close();
+        } finally {
+            try { admin.deleteQueue(name); admin.deleteExchange(name); } finally { cf.destroy(); }
+        }
     }
 }
