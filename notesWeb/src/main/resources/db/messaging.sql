@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS message_outbox (
  last_error VARCHAR(200)
 );
 CREATE INDEX IF NOT EXISTS message_outbox_due ON message_outbox(status, available_at);
+CREATE INDEX IF NOT EXISTS message_outbox_note_order ON message_outbox(destination,routing_key,sequence_id) WHERE kind='NOTE_UPDATE';
 CREATE TABLE IF NOT EXISTS message_inbox (
  message_key VARCHAR(300) PRIMARY KEY, processed_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

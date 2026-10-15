@@ -18,6 +18,8 @@ public class MessagingConfig {
             var jdbc = new org.springframework.jdbc.core.JdbcTemplate(dataSource);
             // Fail before accepting traffic if the reviewed migration was not applied.
             jdbc.queryForList("SELECT sequence_id,id FROM message_outbox WHERE false");
+            if (Boolean.TRUE.equals(jdbc.queryForObject("SELECT EXISTS (SELECT 1 FROM message_outbox WHERE kind='KAFKA' AND status='PENDING')",Boolean.class)))
+                throw new IllegalStateException("Reconcile pending Kafka outbox commands before starting the Rabbit-only application");
             for (String table : java.util.List.of("message_inbox","message_attempt","message_dead_letter","reminder_notification")) {
                 jdbc.queryForList("SELECT * FROM "+table+" WHERE false");
             }

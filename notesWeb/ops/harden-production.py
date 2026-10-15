@@ -2,6 +2,7 @@
 
 This script reconciles Docker Swarm and Dokploy metadata together. No HTTP
 credentials are created for Dokploy. Run phases separately, checking output.
+Legacy Kafka deployment only; do not use for the Rabbit-only PR 3 cutover.
 """
 import copy
 import hashlib

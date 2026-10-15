@@ -9,8 +9,8 @@
 ## ✨ Key Features
 - Modular Monolith architecture with clean separation of concerns (Auth, Notes, Media services)
 - Real-time collaborative notes & instant reminder push via WebSocket (STOMP)
-- Event-driven asynchronous processing (login, note updates) using Redis Streams + Kafka
-- Reliable scheduled & delayed notifications with RabbitMQ (TTL + Dead Letter Exchange)
+- Event-driven asynchronous processing (login, note updates) using Redis Streams + RabbitMQ and a PostgreSQL outbox
+- Reliable scheduled & delayed notifications with PostgreSQL due-time scheduling, RabbitMQ, retries and a durable DLQ
 - Secure JWT authentication with HttpOnly Refresh Token rotation + suspicious reuse detection
 - High-performance PostgreSQL with UUID v7 (ordered) primary keys + Idempotency guarantees
 
@@ -18,7 +18,7 @@
 
 **Backend**  
 - Java 21, Spring Boot 3.5, Spring Security, RESTful API  
-- Message Broker / Event-Driven: Kafka, RabbitMQ, Redis Streams, Asynchronous Processing  
+- Message Broker / Event-Driven: RabbitMQ, Redis Streams, PostgreSQL outbox/inbox, Asynchronous Processing
 - Database & Caching: PostgreSQL, UUID v7, Redis  
 - Security: JWT, OAuth2, RBAC (Role-Based Access Control)  
 - Real-time: WebSocket, STOMP  
@@ -40,24 +40,27 @@ Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 
 - **Event-Driven System** → Decoupled services, high throughput under load
 
-**Kafka (feature update Notes):**
+**Note updates and reminders:**
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/65371b31-87b7-46e4-9b64-4576ecc8b959" alt="Deployment Flow Diagram" width="95%" />
-</p>
+```mermaid
+flowchart LR
+  API[Authenticated note update API] --> DB[(PostgreSQL outbox)]
+  Scheduler[Reminder schedule] --> DB
+  DB --> Relay[Confirmed publisher]
+  Relay --> Rabbit[RabbitMQ durable queues]
+  Rabbit --> Consumer[Manual ACK consumers]
+  Consumer --> TX[Business write + inbox + notification outbox]
+  Consumer --> DLQ[Durable failure record + DLQ]
+```
 
-**RabbitMQ (feature reminder DeadlineTime):**
-
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/ac5c8dcf-c44f-4a5e-baee-a8cc2cdea40a" alt="Deployment Flow Diagram" width="95%" />
-</p>
+Note edits keep their event ID across retries. A per-note outbox order check prevents a newer edit from overtaking an unfinished edit. See [PR 3 cutover and regression checks](notesWeb/docs/rabbit-note-updates-pr3.md).
 
 ## 🔥 Challenges & How I Solved Them
 
 | # | Problem | Solution |
 |---|---------|----------|
-| 1 | API response time degraded under high load due to synchronous processing of login & note updates | Architected **event-driven system** with **Redis Streams + Kafka**, dramatically improved throughput and API responsiveness |
-| 2 | Need reliable scheduled reminders + delayed message delivery without losing messages | Built robust notification system using **RabbitMQ + TTL & Dead Letter Exchange (DLX)** |
+| 1 | API response time degraded under high load due to synchronous processing of login & note updates | Architected **event-driven system** with **Redis Streams + RabbitMQ/outbox**; HTTP 202 follows a durable command write |
+| 2 | Need reliable scheduled reminders + delayed message delivery without losing messages | Built robust notification system using **PostgreSQL scheduling + RabbitMQ, transactional retries and DLQ** |
 | 3 | Secure authentication & session management in distributed environment, prevent token reuse attacks | Implemented **JWT with HttpOnly Refresh Token rotation**, integrated with **Redis** for session management + suspicious reuse detection |
 | 4 | Users required real-time updates for collaborative notes and reminders | Integrated **full-duplex WebSocket (STOMP)** for instant push notifications |
 | 5 | Risk of duplicate data processing + inefficient primary key generation in distributed system | Used **PostgreSQL + UUID v7 (ordered)** + implemented **Idempotency logic** |
@@ -72,7 +75,6 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 **Testing Tips:**
 - **Authentication:** Some endpoints require JWT. You can use the `auth-controller` endpoint to log in/register (email, username & password), obtain a Token, and then click the **"Authorize"** button at the top of the Swagger page to paste the token.
 - **Time Zone:** You must set the time zone (e.g., Asia/Ho_Chi_Minh) before the deadline. Additionally, the due date must be entered in HH:mm format, and the reminder time must be PT1M, PT... depending on how long you want the reminder to be.
-- **Database** You can connect to the database in TablePlus by setting it up (Host/Socket: 192.168.139.117, Port: 5433, User: postgres, Pass: 03102003, Database: NoteApp) to check if the data you entered is actually saved.
 
 ## 📦 Deployment
 - **Self-hosted Production Grade** → Docker Swarm + Cloudflare Tunnel + automated monitoring

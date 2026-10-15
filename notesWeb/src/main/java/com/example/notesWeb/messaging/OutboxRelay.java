@@ -16,8 +16,8 @@ public class OutboxRelay {
     public boolean publishNext() {
         var rows = jdbc.queryForList("""
                 SELECT * FROM message_outbox o WHERE status='PENDING' AND available_at <= now()
-                AND (kind <> 'KAFKA' OR NOT EXISTS (
-                    SELECT 1 FROM message_outbox earlier WHERE earlier.kind='KAFKA'
+                AND (kind <> 'NOTE_UPDATE' OR NOT EXISTS (
+                    SELECT 1 FROM message_outbox earlier WHERE earlier.kind='NOTE_UPDATE'
                     AND earlier.destination=o.destination AND earlier.routing_key=o.routing_key
                     AND earlier.status='PENDING' AND earlier.sequence_id < o.sequence_id
                 ))
