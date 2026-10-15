@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, 'feature/**']
   pull_request:
-    branches: [main]
+    branches: [main, 'codex/**']
 
 permissions:
   contents: read
@@ -25,6 +25,15 @@ jobs:
     env:
       DOCKERHUB_USERNAME: notesweb-ci
       APP_VERSION: ci
+      APP_MESSAGING_INITIALIZE_SCHEMA: 'true'
+      MESSAGING_TEST_DB_URL: jdbc:postgresql://localhost:5433/NoteApp
+      MESSAGING_TEST_DB_USERNAME: postgres
+      MESSAGING_TEST_DB_PASSWORD: ci-only-postgres
+      MESSAGING_TEST_RABBIT_HOST: localhost
+      MESSAGING_TEST_RABBIT_PORT: '5673'
+      MESSAGING_TEST_RABBIT_USERNAME: ci_worker
+      MESSAGING_TEST_RABBIT_PASSWORD: ci-only-rabbit
+      MESSAGING_TEST_REDIS_PORT: '6380'
       DB_URL: jdbc:postgresql://localhost:5433/NoteApp
       DB_USERNAME: postgres
       DB_PASSWORD: ci-only-postgres

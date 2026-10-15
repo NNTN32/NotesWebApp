@@ -1,39 +1,30 @@
 package com.example.notesWeb.exception.realtime.timeEvent.messagePublish;
 
+import com.example.notesWeb.messaging.Outbox;
 import com.example.notesWeb.dtos.TodoListDto.notificatePopup.ReminderDelay;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
-
+import org.springframework.transaction.annotation.*;
+import java.time.Instant;
 import java.util.UUID;
+import java.nio.charset.StandardCharsets;
 
 @Component
 @RequiredArgsConstructor
-@Slf4j
-
-//Responsible for sending messages to RabbitMQ with TTL
 public class ReminderPublisher {
-    private final RabbitTemplate rabbitTemplate;
-
-    //sent id -> consume load db state of todo list
-    public void publishDelay(UUID todoId, long delayMs) {
-
-        rabbitTemplate.convertAndSend(
-                "reminder.delay.exchange", //bind with queue : reminder.delay.queue
-                "reminder.delay.key", //match binding
-                
-                //payload
-                ReminderDelay.builder()
-                        .todoID(todoId) //only sent id list prevent stale data
-                        .build(),
-                message -> {
-                    message.getMessageProperties()
-                            .setExpiration(String.valueOf(delayMs));
-                    return message;
-                }
-        );
-
-        log.info("Publish reminder {} with delay {}ms", todoId, delayMs);
+    private final Outbox outbox;
+    private final ObjectMapper json;
+    public static UUID eventId(UUID todoId, Instant trigger) {
+        return UUID.nameUUIDFromBytes(("reminder:"+todoId+":"+trigger).getBytes(StandardCharsets.UTF_8));
+    }
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void schedule(UUID todoId, Instant trigger) {
+        try {
+            outbox.append(eventId(todoId,trigger), "RABBIT", "notes.events.v2", "reminder.ready",
+                    json.writeValueAsString(ReminderDelay.builder().todoID(todoId).trigger(trigger).build()), trigger);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
+            throw new IllegalArgumentException("Invalid reminder");
+        }
     }
 }

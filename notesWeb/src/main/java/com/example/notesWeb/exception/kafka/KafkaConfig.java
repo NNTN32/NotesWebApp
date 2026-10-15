@@ -33,7 +33,10 @@ import java.util.Map;
 @Configuration
 @EnableKafka
 @Slf4j
+@lombok.RequiredArgsConstructor
 public class KafkaConfig {
+    private final com.example.notesWeb.messaging.FailureLedger failures;
+    private final com.fasterxml.jackson.databind.ObjectMapper json;
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapSevers;
@@ -47,6 +50,9 @@ public class KafkaConfig {
 
         //Zstd compression: Reduces 0.6MB to approximately 150KB (Saves 75% bandwidth)
         kafkaConfig.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, "zstd");
+        kafkaConfig.put(ProducerConfig.ACKS_CONFIG, "all");
+        kafkaConfig.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 5000);
+        kafkaConfig.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
         //Linger & Batch: Wait 20ms to consolidate updates sent by multiple users at once
         kafkaConfig.put(ProducerConfig.LINGER_MS_CONFIG, 20);
@@ -92,15 +98,18 @@ public class KafkaConfig {
 
         //Scale all 8 threads in one instance
         kafkaFactory.setConcurrency(8);
-        kafkaFactory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
+        kafkaFactory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 
         //Exponential Backoff: Try again after 2s->4s->8s (Avoid crashing the database)
         DefaultErrorHandler errorHandler = new DefaultErrorHandler((record, exception) -> {
-
-            //Logic in case of a complete failure will be handled in the Consumer via a catch
-            log.error("All retries have been completed for the message at offset {}", record.offset());
-        }, new ExponentialBackOff(2000L, 2.0)); //Double time after fail each times
-
+            String key = "kafka:"+record.topic()+":"+record.partition()+":"+record.offset();
+            try {
+                failures.dead(key, "kafka:"+record.topic(), json.writeValueAsString(record.value()), "Note update retries exhausted");
+            } catch (com.fasterxml.jackson.core.JsonProcessingException failure) {
+                throw new IllegalStateException("Cannot retain failed message", failure);
+            }
+        }, new FixedBackOff(1000L, 4L));
+        errorHandler.setCommitRecovered(true); // only after FailureLedger transaction commits
         kafkaFactory.setCommonErrorHandler(errorHandler);
         return kafkaFactory;
     }

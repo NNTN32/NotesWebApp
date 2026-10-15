@@ -14,9 +14,15 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class CreateNoteService {
+    private final com.example.notesWeb.messaging.Inbox inbox;
     private final UserRepo userRepo;
     private final NotesRepo notesRepo;
     private final IdGenerateRepo idGenerateRepo;
+
+    @org.springframework.transaction.annotation.Transactional
+    public void createOnce(String eventKey, NoteRequest request, String username) {
+        if (inbox.claim(eventKey)) createNote(request, username);
+    }
 
     //Logic create notes for user
     public Notes createNote(NoteRequest noteRequest, String username){

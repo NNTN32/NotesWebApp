@@ -49,7 +49,7 @@ public class RedisStreamGroup {
 
             //Create group
             redisTemplate.opsForStream()
-                    .createGroup(streamKey, ReadOffset.latest(), group);
+                    .createGroup(streamKey, ReadOffset.from("0-0"), group);
 
             log.info("Group [{}] created for stream [{}]", group, streamKey);
         }catch (Exception e) {
