@@ -116,7 +116,9 @@ class ApiRateLimitTest {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/auth/login")
                 .contentType("application/json").content("{\"username\":\"alice\",\"password\":\"unused\"}"))
                 .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isTooManyRequests())
-                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Retry-After", "30"));
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header().string("Retry-After", "30"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath("$.error").value("rate_limited"))
+                .andExpect(result -> assertThat(result.getResponse().getErrorMessage()).isNull());
         verifyNoInteractions(queue);
     }
 }
