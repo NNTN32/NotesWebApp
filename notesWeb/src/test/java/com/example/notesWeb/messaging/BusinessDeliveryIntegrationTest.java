@@ -84,7 +84,8 @@ class BusinessDeliveryIntegrationTest {
     }
     @Test void checkedSerializationFailureRollsBackReminderAndRetryCreatesOneNotification() throws Exception {
         var owner=user(); var todo=new ListTodo(); todo.setIdList(UUID.randomUUID()); todo.setHeading("task");
-        todo.setUser(owner); todo.setTriggerAt(Instant.now().minusSeconds(60));
+        todo.setUser(owner); todo.setTriggerAt(Instant.parse("2026-01-01T00:00:00.123456789Z"));
+        assertThat(todo.getTriggerAt()).isEqualTo(Instant.parse("2026-01-01T00:00:00.123456Z"));
         var todos=context.getBean(TodoRepo.class); todo=todos.saveAndFlush(todo);
         var event=ReminderDelay.builder().todoID(todo.getIdList()).trigger(todo.getTriggerAt()).build();
         var json=context.getBean(ObjectMapper.class);
