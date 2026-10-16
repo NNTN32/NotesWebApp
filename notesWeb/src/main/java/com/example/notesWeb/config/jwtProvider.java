@@ -12,7 +12,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.UUID;
-import java.util.function.Function;
 
 @Component
 @Slf4j
@@ -86,33 +85,27 @@ public class jwtProvider {
         }
     }
 
-    //Claim object through on jwt
-    public <T> T extractClaim(String token, Function<Claims, T> claimResolve){
-        final Claims claims = extractAllClaims(token);
-        return claimResolve.apply(claims);
-    }
-
     //Get object "user" to jwt
     public String getUserFromJwt(String token){
-        return extractClaim(token, Claims::getSubject);
+        return extractAllClaims(token).getSubject();
     }
 
     public UUID getUserIdFromJwt(String token) {
-        String idString = extractClaim(token, claims -> claims.get(claim_Id, String.class));
+        String idString = extractAllClaims(token).get(claim_Id, String.class);
         if (idString == null) return null; //Prevent bug NPE
         return UUID.fromString(idString);
     }
 
     //Get object "role" to jwt
     public String getRoleFromJwt(String token) {
-        return extractClaim(token, claims -> claims.get(claim_Role, String.class));
+        return extractAllClaims(token).get(claim_Role, String.class);
     }
 
 
     //Check time token validate
     public boolean isTokenExpired(String token){
-        final Date expiration = extractClaim(token, Claims::getExpiration);
-        return expiration.before(new Date());
+        final Date expiration = extractAllClaims(token).getExpiration();
+        return expiration == null || !expiration.after(new Date());
     }
 
     // API authentication accepts access tokens only, never rotation tokens.
@@ -139,7 +132,7 @@ public class jwtProvider {
     }
 
     public long getRemainingTime(String token) {
-        Date expiration = extractClaim(token, Claims::getExpiration);
-        return Math.max(0, expiration.getTime() - System.currentTimeMillis());
+        Date expiration = extractAllClaims(token).getExpiration();
+        return expiration == null ? 0 : Math.max(0, expiration.getTime() - System.currentTimeMillis());
     }
 }

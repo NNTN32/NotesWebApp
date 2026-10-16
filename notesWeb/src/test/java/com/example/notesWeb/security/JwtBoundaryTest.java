@@ -32,6 +32,17 @@ class JwtBoundaryTest {
         assertThat(tokens.validateRefreshToken(refresh)).isFalse();
         assertThatThrownBy(() -> tokens.getUserFromJwt(refresh)).isInstanceOf(IllegalArgumentException.class);
     }
+    @Test void signedTokenWithoutExpiryFailsClosedWithoutNullPointer() {
+        String secret = (String) ReflectionTestUtils.getField(tokens, "jwtSecret");
+        String token = io.jsonwebtoken.Jwts.builder().subject(user.getUsername())
+                .claim("userId", user.getId().toString()).claim("role", "USER").claim("type", "Access")
+                .signWith(io.jsonwebtoken.security.Keys.hmacShaKeyFor(io.jsonwebtoken.io.Decoders.BASE64.decode(secret)))
+                .compact();
+        assertThat(tokens.validateToken(token)).isFalse();
+        assertThat(tokens.isTokenExpired(token)).isTrue();
+        assertThat(tokens.getRemainingTime(token)).isZero();
+    }
+
     @Test void malformedTokensFailClosed() {
         assertThat(tokens.validateToken("not-a-jwt")).isFalse();
         assertThat(tokens.validateRefreshToken("not-a-jwt")).isFalse();

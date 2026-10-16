@@ -1,7 +1,6 @@
 package com.example.notesWeb.exception.redis.mediaNoteRedis;
 
 import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
 import com.example.notesWeb.service.SystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +16,7 @@ import java.util.Map;
 public class SecurityUploadService {
     private final Cloudinary cloudinary;
 
-    public Map uploadCloudinary(MultipartFile file){
+    public Map<String, String> uploadCloudinary(MultipartFile file){
         File tempFile = null;
         try{
             if(file == null || file.isEmpty()){
@@ -29,14 +28,19 @@ public class SecurityUploadService {
             file.transferTo(tempFile);
 
             String folder = determineFolder(file.getContentType());
-            Map<String, Object> options = ObjectUtils.asMap(
+            Map<String, Object> options = Map.of(
                     "resource_type", "auto",
                     "folder", folder,
                     "user_filename", true,
                     "unique_filename", true
             );
 
-            return cloudinary.uploader().upload(tempFile, options);
+            Map<?, ?> result = cloudinary.uploader().upload(tempFile, options);
+            if (result == null || !(result.get("secure_url") instanceof String url) || url.isBlank()
+                    || !(result.get("resource_type") instanceof String type) || type.isBlank()) {
+                throw new IllegalStateException("Cloudinary response is missing valid media metadata");
+            }
+            return Map.of("secure_url", url, "resource_type", type);
         } catch (Exception e) {
             log.error("Cloudinary upload error: ", e);
             throw new SystemException("Failed to upload to Cloudinary" , e);

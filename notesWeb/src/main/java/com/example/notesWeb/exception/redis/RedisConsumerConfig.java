@@ -4,7 +4,6 @@ package com.example.notesWeb.exception.redis;
 import com.example.notesWeb.exception.redis.authRedis.AuthRedisConsumer;
 import com.example.notesWeb.exception.redis.mediaNoteRedis.MediaRedisConsumer;
 import com.example.notesWeb.exception.redis.noteRedis.NoteRedisConsumer;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -12,8 +11,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component

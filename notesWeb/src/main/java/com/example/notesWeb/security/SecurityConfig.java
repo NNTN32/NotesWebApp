@@ -2,7 +2,6 @@ package com.example.notesWeb.security;
 
 import com.example.notesWeb.config.jwtAuthenticationFilter;
 import com.example.notesWeb.config.jwtProvider;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;

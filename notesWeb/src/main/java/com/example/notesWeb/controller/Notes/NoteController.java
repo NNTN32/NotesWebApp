@@ -14,7 +14,6 @@ import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.service.FailedException;
 import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
-import com.sun.security.auth.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -10,15 +10,12 @@ import com.example.notesWeb.repository.todoRepo.TodoRepo;
 import com.example.notesWeb.service.FailedException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import static com.example.notesWeb.model.todoLists.State.FAIL;
 
 @Service
 @RequiredArgsConstructor
