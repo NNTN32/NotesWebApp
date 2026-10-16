@@ -12,30 +12,27 @@ import com.example.notesWeb.service.todoLists.TaskListService;
 import com.example.notesWeb.service.todoLists.TodoListService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/todo")
 public class ListController {
-    @Autowired
-    private TodoListService listService;
+    private final TodoListService listService;
 
-    @Autowired
-    private UserRepo userRepo;
+    private final UserRepo userRepo;
 
-    @Autowired
-    private jwtProvider jwtProvider;
+    private final jwtProvider jwtProvider;
 
-    @Autowired
-    private TaskListService taskListService;
+    private final TaskListService taskListService;
 
     //API Call back logic create To do lists
     @Operation(summary = "User create list todo")

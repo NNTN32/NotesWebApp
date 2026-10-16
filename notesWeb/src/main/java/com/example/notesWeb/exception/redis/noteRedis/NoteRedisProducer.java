@@ -2,7 +2,6 @@ package com.example.notesWeb.exception.redis.noteRedis;
 
 import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -13,10 +12,9 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class NoteRedisProducer {
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
-    private static final String sTREAM_kEY= "notes:create:stream";
+    private static final String STREAM_KEY= "notes:create:stream";
 
     //Push message of request create Notes into Redis Stream
     public void sendNoteRequest(NoteRequest noteRequest, String username){
@@ -28,7 +26,7 @@ public class NoteRedisProducer {
         System.out.println("Sending request to Redis Stream: " + fields);
         redisTemplate.opsForStream()
                 .add(StreamRecords.newRecord()
-                        .in("notes:create:stream")
+                        .in(STREAM_KEY)
                         .ofMap(fields));
     }
 }

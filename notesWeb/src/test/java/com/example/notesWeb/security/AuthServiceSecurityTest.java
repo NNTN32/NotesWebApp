@@ -7,21 +7,22 @@ import com.example.notesWeb.repository.*;
 import com.example.notesWeb.service.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.ArgumentCaptor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.util.ReflectionTestUtils;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class AuthServiceSecurityTest {
+    @Mock RedisTemplate<String, Object> redis;
     @Test void registrationCannotAssignAnAdministrativeRole() throws Exception {
         UserRepo users = mock(UserRepo.class);
         PasswordEncoder encoder = mock(PasswordEncoder.class);
-        AuthService service = new AuthService(mock(RedisTemplate.class), new ObjectMapper());
-        ReflectionTestUtils.setField(service, "userRepo", users);
-        ReflectionTestUtils.setField(service, "passwordEncoder", encoder);
-        ReflectionTestUtils.setField(service, "idGenerateRepo", mock(IdGenerateRepo.class));
+        AuthService service = new AuthService(users, encoder, mock(jwtProvider.class), mock(IdGenerateRepo.class), redis, new ObjectMapper());
         RegisterRequest input = new ObjectMapper().configure(
                 com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                 .readValue("{\"username\":\"mallory\",\"password\":\"secret\",\"role\":\"ADMIN\"}", RegisterRequest.class);
@@ -33,10 +34,8 @@ class AuthServiceSecurityTest {
         assertThat(saved.getValue().getPassword()).isEqualTo("hashed");
     }
     @Test void rejectedRefreshNeverReadsSessionOrGraceKeys() {
-        RedisTemplate redis = mock(RedisTemplate.class);
         jwtProvider tokens = mock(jwtProvider.class);
-        AuthService service = new AuthService(redis, new ObjectMapper());
-        ReflectionTestUtils.setField(service, "tokenProvider", tokens);
+        AuthService service = new AuthService(mock(UserRepo.class), mock(PasswordEncoder.class), tokens, mock(IdGenerateRepo.class), redis, new ObjectMapper());
         assertThatThrownBy(() -> service.refresh("expired-or-access-token")).isInstanceOf(FailedException.class);
         verifyNoInteractions(redis);
     }

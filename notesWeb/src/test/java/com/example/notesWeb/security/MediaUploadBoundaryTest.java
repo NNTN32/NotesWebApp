@@ -5,6 +5,9 @@ import com.cloudinary.Uploader;
 import com.example.notesWeb.exception.redis.mediaNoteRedis.SecurityUploadService;
 import com.example.notesWeb.service.SystemException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.data.redis.core.RedisTemplate;
 import java.io.File;
@@ -15,7 +18,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class MediaUploadBoundaryTest {
+    @Mock RedisTemplate<String, Object> redis;
     @Test void returnsOnlyValidatedMetadataAndRemovesTemporaryFile() throws IOException {
         var cloudinary = mock(Cloudinary.class);
         var uploader = mock(Uploader.class);
@@ -43,9 +48,7 @@ class MediaUploadBoundaryTest {
         var notes = mock(com.example.notesWeb.repository.noteRepo.NotesRepo.class);
         var userId = java.util.UUID.randomUUID();var noteId = java.util.UUID.randomUUID();
         when(notes.existsByIdAndUserId(noteId, userId)).thenReturn(true);
-        var producer = new com.example.notesWeb.exception.redis.mediaNoteRedis.MediaRedisProducer(new SecurityUploadService(cloudinary), notes);
-        RedisTemplate<?, ?> redis = mock(RedisTemplate.class);
-        org.springframework.test.util.ReflectionTestUtils.setField(producer, "redisTemplate", redis);
+        var producer = new com.example.notesWeb.exception.redis.mediaNoteRedis.MediaRedisProducer(redis, new SecurityUploadService(cloudinary), notes);
         assertThatThrownBy(() -> producer.sendMediaRequest("alice", userId, noteId,
                 new MockMultipartFile("file", "image.png", "image/png", new byte[]{1})))
                 .isInstanceOf(SystemException.class);

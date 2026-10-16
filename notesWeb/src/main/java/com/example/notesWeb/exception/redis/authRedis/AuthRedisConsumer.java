@@ -5,18 +5,17 @@ import com.example.notesWeb.messaging.AuthResults;
 import com.example.notesWeb.model.Status;
 import com.example.notesWeb.service.*;
 import com.google.common.util.concurrent.RateLimiter;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.connection.stream.MapRecord;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import com.example.notesWeb.messaging.FailureLedger;
 import org.springframework.stereotype.Component;
 @Component
 public class AuthRedisConsumer extends RedisStreamConsume {
     private final AuthService authService;
-    @Autowired private AuthResults results;
+    private final AuthResults results;
     private final RateLimiter rate=RateLimiter.create(50.0);
-    public AuthRedisConsumer(RedisTemplate<String,Object> redis,AuthService auth,SimpMessagingTemplate unused) {
-        super(redis,"auth:login:stream","auth-group",1); this.authService=auth;
+    public AuthRedisConsumer(RedisTemplate<String,Object> redis,AuthService auth,AuthResults results,FailureLedger failures) {
+        super(redis,"auth:login:stream","auth-group",failures); this.authService=auth; this.results=results;
     }
     @Override protected void handleMessage(MapRecord<String,Object,Object> record) {
         var fields=record.getValue();

@@ -4,7 +4,6 @@ import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
 import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
 import com.example.notesWeb.model.User;
-import com.example.notesWeb.model.takeNotes.NoteMedia;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.repository.UserRepo;
@@ -46,7 +45,7 @@ public class TaskNoteService {
         List<String> mediaUrls = (note.getNoteMediaList() == null) ? List.of() :
                 //Map through to class DTO by Java Stream
                 note.getNoteMediaList().stream()
-                        .map(NoteMedia::getUrl)
+                        .map(media -> media.getUrl())
                         .collect(Collectors.toList());
         return NoteResponse.builder()
                 .title(note.getTitle())

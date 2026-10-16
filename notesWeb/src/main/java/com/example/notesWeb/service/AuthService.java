@@ -11,7 +11,6 @@ import com.example.notesWeb.repository.UserRepo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,17 +24,13 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Transactional //Combine multiple DB operations into a single transaction.
 public class AuthService {
-    @Autowired
-    private UserRepo userRepo;
+    private final UserRepo userRepo;
 
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final PasswordEncoder passwordEncoder;
 
-    @Autowired
-    private jwtProvider tokenProvider;
+    private final jwtProvider tokenProvider;
 
-    @Autowired
-    private IdGenerateRepo idGenerateRepo;
+    private final IdGenerateRepo idGenerateRepo;
 
     private final RedisTemplate<String, Object> redisTemplate;
 

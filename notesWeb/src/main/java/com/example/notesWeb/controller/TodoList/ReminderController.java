@@ -1,11 +1,8 @@
 package com.example.notesWeb.controller.TodoList;
 
-import com.example.notesWeb.config.jwtProvider;
-import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.exception.realtime.timeEvent.receiveMessage.ReminderService;
-import com.example.notesWeb.exception.realtime.timeEvent.receiveMessage.ReminderScheduler;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import lombok.RequiredArgsConstructor;
@@ -24,8 +21,6 @@ import java.util.UUID;
 @RequestMapping("/reminder")
 public class ReminderController {
     private final ReminderService reminderService;
-    private final ReminderScheduler reminderScheduler;
-    private final jwtProvider jwtProvider;
     private final UserRepo userRepo;
 
     @Operation(summary = "User set deadline time todo list")
@@ -47,7 +42,7 @@ public class ReminderController {
 
             // Get username from JWT
             String username = authentication.getName();
-            User user = userRepo.findByUsername(username)
+            userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
             //Convert Duration

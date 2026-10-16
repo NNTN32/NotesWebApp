@@ -4,6 +4,10 @@ import com.example.notesWeb.dtos.AuthResponse;
 import jakarta.servlet.FilterChain;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -20,7 +24,9 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class ApiRateLimitTest {
+    @Mock RedisTemplate<String, Object> redis;
     @AfterEach void clean() { SecurityContextHolder.clearContext(); }
 
     MockHttpServletRequest request(String method, String path) {
@@ -108,10 +114,8 @@ class ApiRateLimitTest {
         var error = new ErrorResponseException(HttpStatus.TOO_MANY_REQUESTS);
         error.getHeaders().set("Retry-After", "30");
         doThrow(error).when(limiter).login(any(), eq("alice"));
-        var controller = new com.example.notesWeb.controller.AuthController();
         var queue = mock(com.example.notesWeb.exception.redis.authRedis.AuthRedisProducer.class);
-        org.springframework.test.util.ReflectionTestUtils.setField(controller, "rateLimiter", limiter);
-        org.springframework.test.util.ReflectionTestUtils.setField(controller, "authRedisProducer", queue);
+        var controller = new com.example.notesWeb.controller.AuthController(limiter, mock(com.example.notesWeb.service.AuthService.class), queue, redis);
         var mvc = org.springframework.test.web.servlet.setup.MockMvcBuilders.standaloneSetup(controller).build();
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/auth/login")
                 .contentType("application/json").content("{\"username\":\"alice\",\"password\":\"unused\"}"))

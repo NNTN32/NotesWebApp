@@ -222,7 +222,9 @@ class MessagingIntegrationTest {
             cf.resetConnection(); // physical connection loss after commit, before ACK
             var second=cf.createConnection().createChannel(false); com.rabbitmq.client.GetResponse replay=null;
             for(int i=0;i<50 && replay==null;i++) { replay=second.basicGet(name,false); if(replay==null) Thread.sleep(20); }
-            assertThat(replay).isNotNull(); assertThat(replay.getProps().getMessageId()).isEqualTo(id.toString());
+            assertThat(replay).isNotNull();
+            replay=java.util.Objects.requireNonNull(replay, "Rabbit message must be redelivered after the lost ACK");
+            assertThat(replay.getProps().getMessageId()).isEqualTo(id.toString());
             tx.executeWithoutResult(s->assertThat(inbox().claim(id.toString())).isFalse());
             second.basicAck(replay.getEnvelope().getDeliveryTag(),false); second.close();
             assertThat(count("business_fixture")).isEqualTo(1);
@@ -240,16 +242,15 @@ class MessagingIntegrationTest {
             assertThat(redis.opsForStream().size(stream+":empty")).isZero();
             var id=redis.opsForStream().add(StreamRecords.newRecord().in(stream).ofMap(Map.<Object,Object>of("value","payload")));
             redis.opsForStream().createGroup(stream,ReadOffset.from("0-0"),"test");
-            var records=redis.opsForStream().read(Consumer.from("test","crashed"),StreamReadOptions.empty().count(1),StreamOffset.create(stream,ReadOffset.lastConsumed()));
+            var records=redis.<Object,Object>boundStreamOps(stream).read(Consumer.from("test","crashed"),StreamReadOptions.empty().count(1),ReadOffset.lastConsumed());
             assertThat(records).hasSize(1);
             tx.executeWithoutResult(s->{ inbox().claim("redis:"+id); jdbc.update("INSERT INTO business_fixture VALUES ('redis',1)"); });
             redis.execute((RedisCallback<Object>)c->c.execute("XCLAIM",stream.getBytes(StandardCharsets.UTF_8),"test".getBytes(StandardCharsets.UTF_8),"crashed".getBytes(StandardCharsets.UTF_8),"0".getBytes(StandardCharsets.UTF_8),id.getValue().getBytes(StandardCharsets.UTF_8),"IDLE".getBytes(StandardCharsets.UTF_8),"31000".getBytes(StandardCharsets.UTF_8)));
-            var consumer=new RedisStreamConsume(redis,stream,"test",1) {
+            var consumer=new RedisStreamConsume(redis,stream,"test",failures()) {
                 @Override protected void handleMessage(MapRecord<String,Object,Object> record) {
                     tx.executeWithoutResult(s-> { if(inbox().claim("redis:"+record.getId())) jdbc.update("INSERT INTO business_fixture VALUES ('duplicate',1)"); });
                 }
             };
-            ReflectionTestUtils.setField(consumer,"failures",failures());
             ReflectionTestUtils.invokeMethod(consumer,"recoverPending","restarted"); consumer.shutdown();
             assertThat(redis.opsForStream().pending(stream,"test").getTotalPendingMessages()).isZero();
             assertThat(count("business_fixture")).isEqualTo(1);

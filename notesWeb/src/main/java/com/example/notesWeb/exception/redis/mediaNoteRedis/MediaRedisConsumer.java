@@ -1,5 +1,6 @@
 package com.example.notesWeb.exception.redis.mediaNoteRedis;
 import com.example.notesWeb.exception.RedisStreamConsume;
+import com.example.notesWeb.messaging.FailureLedger;
 import com.example.notesWeb.service.takeNotes.MediaNoteService;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -8,8 +9,8 @@ import java.util.UUID;
 @Component
 public class MediaRedisConsumer extends RedisStreamConsume {
     private final MediaNoteService media;
-    public MediaRedisConsumer(RedisTemplate<String,Object> redis,MediaNoteService media) {
-        super(redis,"media:create:stream","media-group",8); this.media=media;
+    public MediaRedisConsumer(RedisTemplate<String,Object> redis,MediaNoteService media,FailureLedger failures) {
+        super(redis,"media:create:stream","media-group",failures); this.media=media;
     }
     @Override protected void handleMessage(MapRecord<String,Object,Object> record) {
         var f=record.getValue();
