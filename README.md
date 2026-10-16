@@ -32,6 +32,9 @@
 Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 
 ## 🏗️ Architecture Highlights
+
+[Backend package ownership](notesWeb/docs/feature-modules.md): `auth`, `notes` (including media), `todos` (including reminders), generic `platform`, `shared` and startup wiring. Spring Boot remains pinned to **3.5.16**; RabbitMQ/outbox contracts are unchanged.
+
 - **Modular Monolith** → Clean separation of concerns, easy to maintain and scale
 
 <p align="center">

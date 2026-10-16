@@ -1,0 +1,18 @@
+package com.example.notesWeb.notes.contract;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+@Data
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor
+public class NoteResponse {
+    private String content;
+    private String title;
+    private List<String> url;
+}

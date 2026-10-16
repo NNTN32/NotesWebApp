@@ -1,0 +1,138 @@
+package com.example.notesWeb.auth.security;
+
+import com.example.notesWeb.auth.domain.Role;
+import com.example.notesWeb.auth.domain.User;
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
+import io.jsonwebtoken.security.Keys;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import javax.crypto.SecretKey;
+import java.util.Date;
+import java.util.UUID;
+
+@Component
+@Slf4j
+public class jwtProvider {
+    public static final String claim_Role = "role";
+    public static final String claim_Type = "type"; //distinction access & refresh
+    public static final String claim_Id = "userId";
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpiration;
+
+    @Value("${jwt.refresh}")
+    private Long jwtRefresh;
+
+    //Create secret key for jwt
+    private SecretKey getSignKey(){
+        //Base64 decoding for key secrets
+        byte[] keyBytes = Decoders.BASE64.decode(jwtSecret);
+        return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    //Generate access Token
+    public String generateToken(User user){
+        Date now = new Date();
+        //Setting time token expired
+        Date expiredDate = new Date(System.currentTimeMillis() + jwtExpiration);
+
+        //return role user + token byte
+        return Jwts.builder()
+                .subject(user.getUsername())
+                .claim(claim_Id, user.getId().toString())
+                //Consistent key "role"
+                .claim(claim_Role, user.getRole().name())
+                .claim(claim_Type, "Access")
+                .issuedAt(now)
+                .expiration(expiredDate)
+                .signWith(getSignKey())
+                .compact();
+    }
+
+    //generate for rotation secret
+    public String generateRSToken (User user) {
+        Date expiredRefresh = new Date();
+        Date trackingTime = new Date(System.currentTimeMillis() + jwtRefresh);
+
+        return Jwts.builder()
+                .subject(user.getUsername())
+                .claim(claim_Id, user.getId().toString())
+                .claim(claim_Role, user.getRole().name())
+                .claim(claim_Type, "Rotation")
+                .issuedAt(expiredRefresh)
+                .expiration(trackingTime)
+                .signWith(getSignKey())
+                .compact();
+    }
+
+    //Claim token type "String"
+    public Claims extractAllClaims(String token){
+        try{
+            //using getPayload to retrieve Claims directly
+            return Jwts.parser()
+                    .verifyWith(getSignKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+        }catch (Exception exception) {
+            throw new IllegalArgumentException("Invalid token");
+        }
+    }
+
+    //Get object "user" to jwt
+    public String getUserFromJwt(String token){
+        return extractAllClaims(token).getSubject();
+    }
+
+    public UUID getUserIdFromJwt(String token) {
+        String idString = extractAllClaims(token).get(claim_Id, String.class);
+        if (idString == null) return null; //Prevent bug NPE
+        return UUID.fromString(idString);
+    }
+
+    //Get object "role" to jwt
+    public String getRoleFromJwt(String token) {
+        return extractAllClaims(token).get(claim_Role, String.class);
+    }
+
+
+    //Check time token validate
+    public boolean isTokenExpired(String token){
+        final Date expiration = extractAllClaims(token).getExpiration();
+        return expiration == null || !expiration.after(new Date());
+    }
+
+    // API authentication accepts access tokens only, never rotation tokens.
+    public boolean validateToken(String token) {
+        return validateType(token, "Access");
+    }
+
+    public boolean validateRefreshToken(String token) {
+        return validateType(token, "Rotation");
+    }
+
+    private boolean validateType(String token, String type) {
+        try {
+            Claims claims = extractAllClaims(token);
+            return type.equals(claims.get(claim_Type, String.class))
+                    && claims.getExpiration() != null
+                    && claims.getExpiration().after(new Date())
+                    && claims.getSubject() != null && !claims.getSubject().isBlank()
+                    && UUID.fromString(claims.get(claim_Id, String.class)) != null
+                    && Role.valueOf(claims.get(claim_Role, String.class)) != null;
+        } catch (Exception ignored) {
+            return false;
+        }
+    }
+
+    public long getRemainingTime(String token) {
+        Date expiration = extractAllClaims(token).getExpiration();
+        return expiration == null ? 0 : Math.max(0, expiration.getTime() - System.currentTimeMillis());
+    }
+}

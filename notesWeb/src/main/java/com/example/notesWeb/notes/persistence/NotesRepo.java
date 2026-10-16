@@ -1,0 +1,25 @@
+package com.example.notesWeb.notes.persistence;
+
+import com.example.notesWeb.notes.domain.Notes;
+import io.lettuce.core.dynamic.annotation.Param;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface NotesRepo extends JpaRepository<Notes, UUID> {
+    List<Notes> findByUserId(UUID userID);
+
+    //Fix queries using JPQL works with entity and field names in classes & Mapping 2 sides instead of SQL basic
+    @Query("SELECT DISTINCT n FROM Notes n LEFT JOIN FETCH n.noteMediaList WHERE n.id = :noteID AND n.user.id = :userID")
+    Optional<Notes> findNoteId(@Param("noteID") UUID noteID,
+                               @Param("userID") UUID userID);
+
+    @Query("SELECT n FROM Notes n WHERE n.id = :noteID")
+    Optional<Notes> findNote(@Param("noteID") UUID noteID);
+
+    //Auto generate query "SELECT count(...) > 0"
+    boolean existsByIdAndUserId(UUID noteID, UUID userID);
+}
