@@ -1,8 +1,6 @@
 package com.example.notesWeb.messaging;
 import com.example.notesWeb.exception.RedisStreamConsume;
 import com.example.notesWeb.exception.realtime.timeEvent.messagePublish.ReminderQueueConsume;
-import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
-import com.example.notesWeb.service.takeNotes.TaskNoteService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;

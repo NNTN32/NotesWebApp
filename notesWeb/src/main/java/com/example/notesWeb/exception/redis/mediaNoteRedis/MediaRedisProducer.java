@@ -1,6 +1,5 @@
 package com.example.notesWeb.exception.redis.mediaNoteRedis;
 
-import com.example.notesWeb.dtos.NoteDto.MediaNoteRequest;
 import com.example.notesWeb.service.SystemException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,10 +28,10 @@ public class MediaRedisProducer {
             throw new org.springframework.security.access.AccessDeniedException("Note access denied");
         }
         try{
-            Map uploadResult = securityUploadService.uploadCloudinary(file);
+            Map<String, String> uploadResult = securityUploadService.uploadCloudinary(file);
 
-            String finalUrl = (String) uploadResult.get("secure_url");
-            String resourceType = (String) uploadResult.get("resource_type");
+            String finalUrl = uploadResult.get("secure_url");
+            String resourceType = uploadResult.get("resource_type");
 
             Map<String, String> mediaFields = new HashMap<>();
             mediaFields.put("requestId", UUID.randomUUID().toString());

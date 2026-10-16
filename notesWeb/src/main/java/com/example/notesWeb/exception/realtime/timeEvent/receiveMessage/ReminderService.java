@@ -4,12 +4,10 @@ package com.example.notesWeb.exception.realtime.timeEvent.receiveMessage;
 import com.example.notesWeb.exception.realtime.timeEvent.messagePublish.ReminderPublisher;
 import com.example.notesWeb.model.todoLists.ListTodo;
 import com.example.notesWeb.model.todoLists.State;
-import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.todoRepo.TodoRepo;
 import com.example.notesWeb.service.FailedException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.*;

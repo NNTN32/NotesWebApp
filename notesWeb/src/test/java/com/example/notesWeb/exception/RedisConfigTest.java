@@ -30,4 +30,13 @@ class RedisConfigTest {
         assertThat(factory.getStandaloneConfiguration().getPassword().isPresent()).isFalse();
         assertThat(factory.getStandaloneConfiguration().getHostName()).isEqualTo("localhost");
     }
+    @Test
+    void retainsExistingSessionAndStreamStringWireFormatAfterDependencyUpdate() {
+        var factory = new RedisConfig().connectionFactory(new RedisProperties());
+        var template = new RedisConfig().redisTemplate(factory);
+        byte[] legacyActive = "\"Active\"".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(template.getValueSerializer().deserialize(legacyActive)).isEqualTo("Active");
+        byte[] legacyUsername = "\"alice\"".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(template.getHashValueSerializer().deserialize(legacyUsername)).isEqualTo("alice");
+    }
 }
