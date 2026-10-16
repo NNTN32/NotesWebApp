@@ -1,0 +1,49 @@
+package com.example.notesWeb.todos.reminder.application;
+
+
+import com.example.notesWeb.todos.reminder.messaging.ReminderPublisher;
+import com.example.notesWeb.todos.domain.ListTodo;
+import com.example.notesWeb.todos.domain.State;
+import com.example.notesWeb.todos.persistence.TodoRepo;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ReminderScheduler {
+    private final TodoRepo todoRepo;
+    private final ReminderPublisher reminderPublisher;
+
+
+    @Scheduled(fixedDelay = 60000) //each 60s
+    @Transactional
+    public void pollUpcoming() {
+
+        //use Instant prevent on avoid time zone discrepancies.
+        Instant now = Instant.now();
+        Instant window = now.plusSeconds(120);
+
+        //Only get task that pending & almost expired
+        List<ListTodo> todoList = todoRepo.findUpcomingReminder(State.PENDING, window);
+
+        for (ListTodo todo : todoList) {
+            long delayMs = Duration.between(now, todo.getTriggerAt()).toMillis();
+
+            if (delayMs < 0) delayMs = 0;
+            //Change state so that subsequent scans or other instances will ignore it
+            todo.setState(State.QUEUE);
+            todoRepo.save(todo);
+
+            reminderPublisher.schedule(todo.getIdList(), todo.getTriggerAt());
+            log.info("Scheduled reminder {}", todo.getIdList());
+        }
+    }
+}

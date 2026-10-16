@@ -1,0 +1,53 @@
+package com.example.notesWeb.notes.domain;
+
+import com.example.notesWeb.notes.media.domain.NoteMedia;
+
+import com.example.notesWeb.auth.domain.User;
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
+import lombok.Data;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
+
+@Data
+@Entity
+@Table(name = "notes")
+public class Notes {
+
+    @Id
+//    @Column(columnDefinition = "uuid DEFAULT get_uuid_v7()")
+//    @GeneratedValue
+    @Column(columnDefinition = "uuid", nullable = false, updatable = false)
+    private UUID id;
+
+    @Column(length = 100000, nullable = false)
+    private String title;
+
+    @Column(length = 100000)
+    private String content;
+
+
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    @JsonBackReference //No loop
+    private User user;
+
+    //Add reverse relationship to join table NoteMedia
+    @OneToMany(mappedBy = "notes", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true) //Add noteID key constraint on noteMedia side delete by
+    @JsonManagedReference
+    private List<NoteMedia> noteMediaList;
+
+    @Version
+    private Integer version; // Prevent bug race condition of updating one notes same time
+}
