@@ -2,7 +2,6 @@ package com.example.notesWeb.exception;
 import com.example.notesWeb.messaging.FailureLedger;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Range;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -14,13 +13,13 @@ public abstract class RedisStreamConsume {
     protected final RedisTemplate<String,Object> redisTemplate;
     protected final String streamKey;
     protected final String group;
-    @Autowired private FailureLedger failures;
+    private final FailureLedger failures;
     private final AtomicBoolean started=new AtomicBoolean();
     private final ExecutorService executor=Executors.newSingleThreadExecutor();
     private volatile boolean running=true;
     private String pendingCursor="0-0";
-    protected RedisStreamConsume(RedisTemplate<String,Object> redis,String stream,String group,int ignoredWorkers) {
-        this.redisTemplate=redis; this.streamKey=stream; this.group=group;
+    protected RedisStreamConsume(RedisTemplate<String,Object> redis,String stream,String group,FailureLedger failures) {
+        this.redisTemplate=redis; this.streamKey=stream; this.group=group; this.failures=failures;
     }
     protected abstract void handleMessage(MapRecord<String,Object,Object> record);
     public void start(String name) { if (started.compareAndSet(false,true)) executor.submit(()->loop(name)); }
@@ -28,7 +27,7 @@ public abstract class RedisStreamConsume {
         while (running && !Thread.currentThread().isInterrupted()) {
             try {
                 recoverPending(name);
-                var records=redisTemplate.opsForStream().read(Consumer.from(group,name),StreamReadOptions.empty().count(10).block(Duration.ofSeconds(2)),StreamOffset.create(streamKey,ReadOffset.lastConsumed()));
+                var records=redisTemplate.<Object,Object>boundStreamOps(streamKey).read(Consumer.from(group,name),StreamReadOptions.empty().count(10).block(Duration.ofSeconds(2)),ReadOffset.lastConsumed());
                 if (records!=null) for(var record:records) processSafely(record);
             } catch (RuntimeException failure) {
                 log.warn("Redis stream unavailable [{}]; messages retained",streamKey);

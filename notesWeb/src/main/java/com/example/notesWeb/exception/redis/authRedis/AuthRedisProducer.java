@@ -2,7 +2,6 @@ package com.example.notesWeb.exception.redis.authRedis;
 
 import com.example.notesWeb.dtos.AuthRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.connection.stream.StreamRecords;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -13,8 +12,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class AuthRedisProducer {
-    @Autowired
-    private RedisTemplate<String , Object> redisTemplate;
+    private final RedisTemplate<String , Object> redisTemplate;
 
     private static final String STREAM_KEY = "auth:login:stream";
 

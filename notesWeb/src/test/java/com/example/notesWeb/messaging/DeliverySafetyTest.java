@@ -4,6 +4,9 @@ import com.example.notesWeb.exception.realtime.timeEvent.messagePublish.Reminder
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rabbitmq.client.Channel;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
@@ -16,7 +19,9 @@ import java.nio.charset.StandardCharsets;
 import static org.mockito.Mockito.*;
 import static org.assertj.core.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class DeliverySafetyTest {
+    @Mock(answer = org.mockito.Answers.RETURNS_DEEP_STUBS) RedisTemplate<String, Object> redis;
     final ObjectMapper json=new ObjectMapper().findAndRegisterModules();
     @Test void rabbitFailureIsRetainedBeforeAckAndDbOutageRequeues() throws Exception {
         var delivery=mock(ReminderDelivery.class); var failures=mock(FailureLedger.class); var channel=mock(Channel.class);
@@ -49,12 +54,10 @@ class DeliverySafetyTest {
         verifyNoInteractions(failures);
     }
     @Test void redisFailureOrUnavailableDlqNeverAcknowledges() {
-        RedisTemplate<String,Object> redis=mock(RedisTemplate.class,RETURNS_DEEP_STUBS);
         var ledger=mock(FailureLedger.class);
-        var consumer=new RedisStreamConsume(redis,"stream","group",1) {
+        var consumer=new RedisStreamConsume(redis,"stream","group",ledger) {
             @Override protected void handleMessage(MapRecord<String,Object,Object> record) { throw new IllegalStateException("DB failed"); }
         };
-        ReflectionTestUtils.setField(consumer,"failures",ledger);
         var record=StreamRecords.newRecord().in("stream").ofMap(Map.<Object,Object>of("key","value")).withId(RecordId.of("1-0"));
         ReflectionTestUtils.invokeMethod(consumer,"processSafely",record);
         verify(redis.opsForStream(),never()).acknowledge(anyString(),anyString(),any(RecordId.class));
@@ -64,12 +67,10 @@ class DeliverySafetyTest {
         consumer.shutdown();
     }
     @Test void redisExhaustedMessageIsAcknowledgedOnlyAfterFailureCommit() {
-        RedisTemplate<String,Object> redis=mock(RedisTemplate.class,RETURNS_DEEP_STUBS);
         var ledger=mock(FailureLedger.class); when(ledger.redisFailure(anyString(),anyString(),anyString())).thenReturn(true);
-        var consumer=new RedisStreamConsume(redis,"stream","group",1) {
+        var consumer=new RedisStreamConsume(redis,"stream","group",ledger) {
             @Override protected void handleMessage(MapRecord<String,Object,Object> record) { throw new IllegalArgumentException(); }
         };
-        ReflectionTestUtils.setField(consumer,"failures",ledger);
         var record=StreamRecords.newRecord().in("stream").ofMap(Map.<Object,Object>of("key","value")).withId(RecordId.of("1-0"));
         ReflectionTestUtils.invokeMethod(consumer,"processSafely",record);
         var order=inOrder(ledger,redis.opsForStream()); order.verify(ledger).redisFailure(anyString(),anyString(),eq("1-0"));

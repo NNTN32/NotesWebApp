@@ -7,49 +7,39 @@ import com.example.notesWeb.dtos.NoteDto.NoteRequest;
 import com.example.notesWeb.dtos.NoteDto.NoteResponse;
 import com.example.notesWeb.dtos.NoteDto.NoteUpdateEvent;
 import com.example.notesWeb.exception.redis.noteRedis.NoteRedisProducer;
-import com.example.notesWeb.model.User;
 import com.example.notesWeb.model.takeNotes.Notes;
 import com.example.notesWeb.repository.UserRepo;
 import com.example.notesWeb.repository.noteRepo.NotesRepo;
 import com.example.notesWeb.service.FailedException;
-import com.example.notesWeb.service.takeNotes.CreateNoteService;
 import com.example.notesWeb.service.takeNotes.TaskNoteService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
 
 import java.util.List;
 import java.util.UUID;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/notes")
 public class NoteController {
-    @Autowired
-    private NoteUpdatePublisher noteUpdates;
+    private final NoteUpdatePublisher noteUpdates;
 
-    @Autowired
-    private CreateNoteService createNoteService;
+    private final jwtProvider jwtProvider;
 
-    @Autowired
-    private jwtProvider jwtProvider;
+    private final UserRepo userRepo;
 
-    @Autowired
-    private UserRepo userRepo;
+    private final TaskNoteService taskNoteService;
 
-    @Autowired
-    private TaskNoteService taskNoteService;
+    private final NoteRedisProducer noteRedisProducer;
 
-    @Autowired
-    private NoteRedisProducer noteRedisProducer;
-
-    @Autowired
-    private NotesRepo notesRepo;
+    private final NotesRepo notesRepo;
 
     //API Handle Create Notes
     @Operation(summary = "User create notes")
@@ -75,7 +65,7 @@ public class NoteController {
 
             //Checking situation if user really & still login
             String username = jwtProvider.getUserFromJwt(token);
-            User user = userRepo.findByUsername(username)
+            userRepo.findByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("User not found!"));
 
             //Send message queue into Redis Stream

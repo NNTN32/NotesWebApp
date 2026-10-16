@@ -10,7 +10,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import com.example.notesWeb.security.ApiRateLimiter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +25,7 @@ import java.util.UUID;
 
 @Slf4j
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/auth")
 public class AuthController {
     @ExceptionHandler(org.springframework.web.ErrorResponseException.class)
@@ -34,16 +35,12 @@ public class AuthController {
                 .body(Map.of("error", error.getStatusCode().value() == 429 ? "rate_limited" : "temporarily_unavailable"));
     }
 
-    @Autowired
-    private ApiRateLimiter rateLimiter;
-    @Autowired
-    private AuthService authService;
+    private final ApiRateLimiter rateLimiter;
+    private final AuthService authService;
 
-    @Autowired
-    private AuthRedisProducer authRedisProducer;
+    private final AuthRedisProducer authRedisProducer;
 
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     @Value("${app.secure-cookie:false}")
     private boolean secureCookie;
