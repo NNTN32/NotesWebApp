@@ -15,7 +15,8 @@ Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application s
 ## Running a release
 
 - **Release:** merge a reviewed PR with a normal merge commit. CI then publishes, deploys and promotes `latest` by itself; watch the `deploy` job and the `backend-deployment` artifact.
-- **No deploy:** put `[skip deploy]` in the merge commit title for changes that do not alter the running application (CI, docs, tests). Tests still run; `publish` and `deploy` are skipped and production keeps its pinned digest.
+- **No deploy:** put `[skip deploy]` in the PR title for changes that do not alter the running application (CI, docs, tests). The merge commit message carries the PR title and CI checks the whole message, so the default merge title is fine. Tests still run; on the `main` run confirm `publish` and `deploy` show *skipped* and production keeps its pinned digest. Never put the marker, even negated, in a runtime PR's title.
+- **Branches:** start from an up-to-date `main`, keep one topic per PR, and delete the head branch after merge.
 - **After a release:** confirm the Dokploy deployment titled `BE-<run>-<attempt>` is Done, the pinned image equals the new digest, public readiness is UP and `latest` on Docker Hub has the same index digest with amd64 and arm64.
 - **Re-running:** re-run only the failed `deploy` job, and only after the `failure` field and Dokploy state are understood (next section).
 
