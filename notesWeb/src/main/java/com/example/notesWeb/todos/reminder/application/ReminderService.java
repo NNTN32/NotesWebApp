@@ -67,6 +67,11 @@ public class ReminderService {
                 throw new FailedException("Unauthorized: This todo does not belong to the current user.");
             }
 
+            // A completed todo must not be silently reopened by scheduling a reminder.
+            if (todo.getState() == State.CORRECT) {
+                throw new FailedException("This todo is marked as CORRECT and cannot be rescheduled!");
+            }
+
             todo.setDeadlineTime(deadlineInstant);
             todo.setReminderTime(reminder.toMinutes());
             //prevent on duplicate sent reminder
