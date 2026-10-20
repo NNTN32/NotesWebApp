@@ -188,8 +188,19 @@ export async function deploy(config, {
     await api('application.update', { applicationId: target.applicationId, sourceType: 'docker',
       dockerImage: image, autoDeploy: false, healthCheckSwarm: null });
     changed = true;
-    await api('application.deploy', { applicationId: target.applicationId, title: releaseId,
+    const startDeploy = () => api('application.deploy', { applicationId: target.applicationId, title: releaseId,
       description: `BE ${revision}` });
+    try { await startDeploy(); }
+    catch (error) {
+      if (!uncertainMutation) throw error;
+      // A 5xx/transport failure may still have queued our release (unique title): look for it before any retry.
+      let queued = false;
+      for (let i = 0; i < 6 && !queued; i++) {
+        await pause(5_000);
+        queued = (await deployments()).some(d => d.title === releaseId && !baseline.has(d.deploymentId));
+      }
+      if (!queued) { uncertainMutation = false; await startDeploy(); } // shortcut: one retry only, then manual_required
+    }
     await waitForRelease(releaseId, image, true, revision);
     record.status = 'passed'; record.observedSeconds = observationSamples * 10;
     checkpoint(record);

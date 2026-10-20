@@ -13,7 +13,7 @@ function fixture(options = {}) {
     serverId: null, replicas: 1, env: 'PASSWORD=must-not-appear-in-reports',
     networkSwarm: [{ Target: 'app' }, { Target: 'private' }], healthCheckSwarm: oldHealth };
   const baseline = [{ deploymentId: 'old', title: 'old release', status: options.busy ? 'running' : 'done' }];
-  let desired = structuredClone(previous), runningImage = oldImage, stage = 'old', smokeCalls = 0;
+  let desired = structuredClone(previous), runningImage = oldImage, stage = 'old', smokeCalls = 0, deployFailures = 0;
   let publicNode = options.wrongNode ? 'orbstack' : target.hostname;
   const deps = { attempts: 3, observationSamples: 2, pause: async () => {},
     checkpoint: record => records.push(structuredClone(record)),
@@ -45,6 +45,10 @@ function fixture(options = {}) {
       if (route === 'application.update') {
         desired = { ...desired, ...body };
         if (options.uncertainUpdate) throw new Error(config.apiKey);
+      }
+      if (route === 'application.deploy' && options.deployUnavailable
+        && !body.title.endsWith('-rollback') && (options.deployUnavailableAlways || deployFailures++ === 0)) {
+        return { ok: false, status: options.deployUnavailable, body: { cancel: async () => {} } };
       }
       if (route === 'application.deploy') {
         stage = body.title.endsWith('-rollback') ? 'rollback' : 'candidate';
@@ -140,14 +144,27 @@ test('subsequent rollback still requires readiness for a prior Actuator image', 
 });
 for (const options of [
   { foreignRelease: true }, { changedSettings: true }, { interveningDeployment: true },
-  { deploymentStatus: 'running' }, { uncertainDeploy: true }, { uncertainUpdate: true },
+  { deploymentStatus: 'running' }, { uncertainUpdate: true },
+  { deployUnavailable: 522, deployUnavailableAlways: true },
 ]) test(`does not overwrite a concurrent/ambiguous deployment: ${Object.keys(options)[0]}`, async () => {
   const f = fixture(options);
   await assert.rejects(deploy(config, f.deps), /manual_required/);
   assert.equal(f.last().rollback, 'manual_required');
   assert.equal(writes(f).filter(c => c.route === 'application.update').length, 1);
-  assert.ok(writes(f).filter(c => c.route === 'application.deploy').length <= 1);
+  assert.ok(writes(f).filter(c => c.route === 'application.deploy').length <= (options.deployUnavailable ? 2 : 1));
   assert.ok(!JSON.stringify(f.records).includes(config.apiKey));
+});
+test('a deploy request that failed after Dokploy queued the release is reconciled, not retried', async () => {
+  const f = fixture({ uncertainDeploy: true });
+  const result = await deploy(config, f.deps);
+  assert.equal(result.status, 'passed');
+  assert.equal(writes(f).filter(c => c.route === 'application.deploy').length, 1);
+});
+test('a 522 on deploy that queued nothing is retried exactly once', async () => {
+  const f = fixture({ deployUnavailable: 522 });
+  const result = await deploy(config, f.deps);
+  assert.equal(result.status, 'passed');
+  assert.equal(writes(f).filter(c => c.route === 'application.deploy').length, 2);
 });
 test('a rejected image update changes nothing and records the failing route', async () => {
   const f = fixture({ rejectUpdate: 400 });
