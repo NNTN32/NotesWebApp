@@ -1,6 +1,6 @@
 #BUILD
 #Maven JDK 21 for compile code
-FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
+FROM maven:3.9-eclipse-temurin-26-alpine AS build
 WORKDIR /app
 
 #docker scale cache layer
