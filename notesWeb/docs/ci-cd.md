@@ -29,4 +29,6 @@ Manual recovery: quiesce deployment automation, verify the Lightsail node and la
 - Enable 2FA on the owner account and review Dokploy audit logs after releases. The script is hard-pinned to one endpoint and application, so a leaked workflow cannot redirect it elsewhere, but a leaked key itself can act as owner.
 - Do not recreate a Member CI user unless Dokploy grants it update/deploy rights on one service without node-wide Docker access.
 
+After each release, confirm the publish job's per-architecture smoke step is green and `release.json` in `backend-release` lists both `linux/amd64` and `linux/arm64` before trusting the deployed digest.
+
 Before first rollout: confirm off-VM encrypted backup and restore evidence, API key scope, ProductBE branch restriction and live API response shapes. Do not merge until PR CI and review pass. No schema migration, IAM change, Free→Paid upgrade or public database/admin exposure is part of this release.
