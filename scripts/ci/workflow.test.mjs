@@ -21,3 +21,15 @@ test('publication requires application and CD regression tests plus merged main 
   assert.match(workflow, /node --test scripts\/ci\/\*.test.mjs/);
   assert.match(workflow, /localhost:8081\/actuator\/health\/readiness/);
 });
+test('every action is pinned to a full commit SHA and checkouts drop the token', () => {
+  const uses = [...workflow.matchAll(/^\s*- uses: (\S+)/gm), ...workflow.matchAll(/^\s+uses: (\S+)/gm)].map(m => m[1]);
+  assert.ok(uses.length > 0);
+  for (const action of uses) assert.match(action, /@[a-f0-9]{40}$/, action);
+  const checkouts = workflow.split('actions/checkout@').length - 1;
+  assert.equal(workflow.split('persist-credentials: false').length - 1, checkouts);
+});
+test('the published digest is smoked on both architectures before it is recorded', () => {
+  const publish = workflow.slice(workflow.indexOf('\n  publish:'), workflow.indexOf('\n  deploy:'));
+  assert.match(publish, /linux\/amd64 linux\/arm64/);
+  assert.ok(publish.indexOf('both architectures') < publish.indexOf('Record immutable release'));
+});
