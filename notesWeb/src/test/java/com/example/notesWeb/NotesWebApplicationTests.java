@@ -32,7 +32,8 @@ import static org.assertj.core.api.Assertions.*;
 class NotesWebApplicationTests {
     @Autowired ApplicationContext context;
     @Autowired EntityManagerFactory entities;
-    @Autowired RequestMappingHandlerMapping endpoints;
+    @Autowired @org.springframework.beans.factory.annotation.Qualifier("requestMappingHandlerMapping")
+    RequestMappingHandlerMapping endpoints;
 
     @Test void contextFindsEveryFeatureControllerRepositoryAndConsumer() {
         for(Class<?> type:java.util.List.of(AuthController.class,NoteController.class,MediaNoteController.class,

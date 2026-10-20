@@ -69,10 +69,18 @@ management:
   endpoints:
     web:
       exposure:
-        include: health, info
+        include: health
   endpoint:
     health:
-      show-details: when_authorized
+      show-details: never
+      show-components: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState, db, redis, rabbit
+        liveness:
+          include: livenessState
 
 springdoc:
   swagger-ui:
