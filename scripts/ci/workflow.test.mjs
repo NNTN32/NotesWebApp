@@ -18,6 +18,7 @@ test('publication requires application and CD regression tests plus merged main 
   assert.match(workflow, /needs: \[build-and-test, deployment-tests, release-policy\]/);
   assert.match(workflow, /needs.deployment-tests.result == 'success'/);
   assert.match(workflow, /needs.release-policy.outputs.merged == 'true'/);
+  assert.match(workflow, /attempt < 6 && !merged/); // lagging PR association must not turn a merge into a direct push
   assert.match(workflow, /node --test scripts\/ci\/\*.test.mjs/);
   assert.match(workflow, /localhost:8081\/actuator\/health\/readiness/);
 });

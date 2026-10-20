@@ -130,12 +130,17 @@ jobs:
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
-            const prs = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
-              ...context.repo, commit_sha: context.sha, per_page: 100
-            });
-            const merged = prs.some(pr => pr.merged_at && pr.base.ref === 'main'
-              && pr.base.repo.full_name === `${context.repo.owner}/${context.repo.repo}`
-              && pr.merge_commit_sha === context.sha);
+            // GitHub can lag a few seconds linking a fresh merge commit to its PR; retry before calling it a direct push.
+            let merged = false;
+            for (let attempt = 0; attempt < 6 && !merged; attempt++) {
+              if (attempt) await new Promise(resolve => setTimeout(resolve, 10_000));
+              const prs = await github.paginate(github.rest.repos.listPullRequestsAssociatedWithCommit, {
+                ...context.repo, commit_sha: context.sha, per_page: 100
+              });
+              merged = prs.some(pr => pr.merged_at && pr.base.ref === 'main'
+                && pr.base.repo.full_name === `${context.repo.owner}/${context.repo.repo}`
+                && pr.merge_commit_sha === context.sha);
+            }
             core.setOutput('merged', String(merged));
             if (!merged) core.notice('Direct main push: tests only; no latest publication or production deployment.');
 
