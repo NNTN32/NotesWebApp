@@ -10,7 +10,7 @@ Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-
 4. Serial CD checks the exact node, application, previous healthy pinned digest, unchanged runtime settings and no competing deployment. It updates only the pinned image and replaces the legacy custom health override with the image's liveness check, then requests a uniquely named API deployment. No API mutation is automatically retried.
 5. Require matching Dokploy deployment completion, one healthy Swarm replica, exact digest and OCI revision. Public GET gates check readiness, BE and FE same-origin auth polling (202/PENDING), and anonymous note access denial (401). Observe for another 120 seconds. Only then promote that digest to `latest`.
 
-Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application state only. Public health responses contain only status. Redis health uses PING because the application ACL deliberately denies INFO. CI runtime smoke is amd64; multiarch publishing does not imply an arm64 runtime test.
+Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application state only. Public health responses contain only status. Redis health uses PING because the application ACL deliberately denies INFO. Full CI runtime/integration smoke is amd64. After publishing, each architecture's child digest is pulled and checked (OCI revision label equals the commit, `java -version` runs under amd64 and arm64); this is not an arm64 integration test. All GitHub Actions are pinned to full commit SHAs. `main` is protected by a ruleset: PR required, `build-and-test` and `deployment-tests` must pass on an up-to-date branch, no force-push/deletion, no bypass.
 
 ## Failure and rollback
 
