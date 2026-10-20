@@ -184,20 +184,22 @@ export async function deploy(config, {
     throw new Error('Deployment health gate timed out');
   };
   try {
-    changed = true;
     // Only the first Actuator release changes the old custom health override; rollback restores it.
     await api('application.update', { applicationId: target.applicationId, sourceType: 'docker',
       dockerImage: image, autoDeploy: false, healthCheckSwarm: null });
+    changed = true;
     await api('application.deploy', { applicationId: target.applicationId, title: releaseId,
       description: `BE ${revision}` });
     await waitForRelease(releaseId, image, true, revision);
     record.status = 'passed'; record.observedSeconds = observationSamples * 10;
     checkpoint(record);
     return record;
-  } catch {
+  } catch (error) {
     record.status = 'failed';
     record.rollback = 'not_started';
-    if (changed) {
+    // Only fixed route/HTTP-status messages are safe to persist; never server bodies or other errors.
+    if (/^Dokploy [\w.]+ (HTTP \d{3}|request failed)$/.test(error?.message)) record.failure = error.message;
+    if (changed || uncertainMutation) {
       try {
         assert.ok(!uncertainMutation, 'Ambiguous mutation; reconcile before another write');
         await assertOwnership();

@@ -69,6 +69,10 @@ function fixture(options = {}) {
                 ? ['CMD-SHELL', '/actuator/health/liveness'] : ['CMD-SHELL', 'legacy-login-health'] } } };
         }
       }
+      if (route === 'application.update' && options.rejectUpdate) {
+        desired = structuredClone(previous);
+        return { ok: false, status: options.rejectUpdate, body: { cancel: async () => {} } };
+      }
       return { ok: true, status: 200, body: { cancel: async () => {} }, json: async () => {
         assert.ok(!body, 'Mutations must not parse an empty JSON body'); return data;
       } };
@@ -144,6 +148,13 @@ for (const options of [
   assert.equal(writes(f).filter(c => c.route === 'application.update').length, 1);
   assert.ok(writes(f).filter(c => c.route === 'application.deploy').length <= 1);
   assert.ok(!JSON.stringify(f.records).includes(config.apiKey));
+});
+test('a rejected image update changes nothing and records the failing route', async () => {
+  const f = fixture({ rejectUpdate: 400 });
+  await assert.rejects(deploy(config, f.deps), /rollback not_started/);
+  assert.equal(f.last().rollback, 'not_started');
+  assert.equal(f.last().failure, 'Dokploy application.update HTTP 400');
+  assert.equal(writes(f).length, 1);
 });
 test('failed rollback is explicit and never turns the failed release green', async () => {
   const f = fixture({ smokeFailure: true, rollbackFailure: true });
