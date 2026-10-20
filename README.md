@@ -83,7 +83,7 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 
 [Release runbook](notesWeb/docs/ci-cd.md) · [Contributor/process rules](CLAUDE.md)
 
-PR tests → merged/current main → build immutable digest → verify Lightsail identity → Dokploy API deploy → exact running image/revision + readiness/public smoke → 120-second observation → promote latest. No production deployment from PRs, feature branches or direct main pushes. The deploy job uses the main-only **ProductBE** environment.
+PR tests → merged/current main → build immutable digest → verify Lightsail identity → Dokploy API deploy → exact running image/revision + readiness/public smoke → 120-second observation → promote latest. No production deployment from PRs, feature branches or direct main pushes; a merge commit titled with `[skip deploy]` (CI/docs-only changes) skips publish and deploy. The deploy job uses the main-only **ProductBE** environment.
 
 Readiness checks PostgreSQL/Redis/RabbitMQ; Docker uses application liveness. A failed gate restores the previous pinned image only if no concurrent/ambiguous deployment intervenes. CI stays red and records sanitized evidence in `backend-deployment`. Rollback keeps current data, env and networks; it is not a database restore.
 

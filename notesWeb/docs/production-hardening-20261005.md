@@ -1,5 +1,7 @@
 # Production checklist — evidence 05/10/2026
 
+> Historical snapshot (OrbStack era, before the 19/10 Lightsail cutover). Hosts, tunnels, accounts and ports below are out of date. For current production and release process use [Release runbook](ci-cd.md) and the [current Notion runbook](https://app.notion.com/p/3f084e0b99dd813d927dd749ed5f6661).
+
 - PostgreSQL: `notes_observer` can SELECT; INSERT/UPDATE/DELETE denied, no superuser/role/db creation. Default read-only transactions. TablePlus `NoteAppProduct` changed to localhost:15433, production tag, Safe Mode 2, Ask every time; Test and Connect passed.
 - Redis: `notes_app` restricted to application key prefixes/command categories, `notes_observer` metadata plus read selectors for notes/media (no auth stream payload), `notes_admin` separate. Passwords generated locally and stored in root-only /var/lib/notesweb-hardening/20261005/credentials.json and owner's ~/.config/notesweb-production/credentials.json (0600). Anonymous default user disabled. ACL file persisted on Redis data volume; AOF everysec enabled. Swarm endpoint changed DNSRR → VIP to avoid cached task addresses after replacement. Production authenticated workers verified after restart.
 - RabbitMQ: `guest` removed; dedicated notes_app (no admin tag), notes_monitor (monitoring only, no queue read/write), notes_admin. Internal broker ports only. Node name preserved with persistent data and startup hostname resolution. STOMP plugin enabled by persistent Dokploy command. Reminder consumer count 1.
