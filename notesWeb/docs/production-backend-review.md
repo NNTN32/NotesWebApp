@@ -1,6 +1,6 @@
 # Backend production — TablePlus & Dokploy
 
-> Historical initial snapshot. Production changed after this review: use [hardening evidence](production-hardening-20261005.md) and [current Notion runbook](https://app.notion.com/p/3f084e0b99dd813d927dd749ed5f6661). PostgreSQL now uses observer via localhost:15433; Redis observer via :16379; broker host ports removed; BE uses pinned ACL-enabled image. Connection instructions below describe the superseded snapshot.
+> Historical OrbStack-era snapshot; the VM `nntn-vps` described below was removed on 20/10/2026 and production now runs on Lightsail — use [Release runbook](ci-cd.md), [hardening evidence](production-hardening-20261005.md) and [current Notion runbook](https://app.notion.com/p/3f084e0b99dd813d927dd749ed5f6661). PostgreSQL now uses observer via localhost:15433; Redis observer via :16379; broker host ports removed; BE uses pinned ACL-enabled image. Connection instructions below describe the superseded snapshot.
 
 Review ngày 05/10/2026. Phạm vi: backend `notesWeb`, database và worker xử lý job/message. Đây là kết quả kiểm tra và checklist đề xuất; chưa sửa code hoặc redeploy production.
 

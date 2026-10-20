@@ -1,6 +1,6 @@
 # Backend release process
 
-Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-177` (`172.26.24.177`). Application `_mkgSpRBPfNpAjBLu_zDB`. OrbStack is retired and is never a CD fallback. Spring Boot stays **3.5.16**; messaging/data contracts are unchanged.
+Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-177` (`172.26.24.177`). Application `_mkgSpRBPfNpAjBLu_zDB`. OrbStack was removed on 20/10/2026 after a final `pg_dumpall` (app DB `NoteApp` + Dokploy DB) was saved off-machine by the owner, and is never a CD fallback. Spring Boot stays **3.5.16**; messaging/data contracts are unchanged.
 
 ## Gates
 
@@ -25,7 +25,7 @@ Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application s
 
 CD rolls back to the saved digest and prior health override, then repeats runtime/public gates, **only** when this run still owns the desired image/settings and no competing or active deployment exists. It preserves env, networks, volumes and data. If `application.deploy` fails with a 5xx or transport error (for example Cloudflare 522), CD first looks for a deployment titled with this release ID for up to 30 seconds, continues with it if found, and otherwise retries that one request once; any other ambiguous POST outcome, concurrent change or failed rollback produces `manual_required`. After such a failure Dokploy can pin the new digest while Swarm still runs the old one, so compare the pinned image with the running service before re-running; inspect Dokploy history/runtime before retrying. Do not blindly rerun the workflow or force `docker service rollback` over an unrelated PreviousSpec.
 
-Manual recovery: quiesce deployment automation, verify the Lightsail node and latest successful artifact, pin the known-good digest in Dokploy, deploy, then verify service/container health, readiness and public contracts. Leave current data volumes intact. Schema/data rollback requires a separately validated backup/restore plan; never restore an old OrbStack DB over new production writes.
+Manual recovery: quiesce deployment automation, verify the Lightsail node and latest successful artifact, pin the known-good digest in Dokploy, deploy, then verify service/container health, readiness and public contracts. Leave current data volumes intact. Schema/data rollback requires a separately validated backup/restore plan; never restore the 20/10 OrbStack dump over new production writes.
 
 ## Deploy credential
 

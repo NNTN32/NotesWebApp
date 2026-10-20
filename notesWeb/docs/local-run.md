@@ -15,4 +15,4 @@ Local `.env` is ignored by Git. Use PostgreSQL `localhost:5433`, Redis `localhos
 - IntelliJ: select Java 21, main class `com.example.notesWeb.NotesWebApplication`, working directory `/Users/nhannguyen/Desktop/NotesWebApp/notesWeb`, and program arguments `--server.port=8082`.
 - Swagger: http://localhost:8082/.
 
-If `${DB_URL}` appears literally in a JDBC error, verify the working directory and `.env`. If port 8081 is occupied by OrbStack, use 8082 locally. Stop the existing local Backend before switching IDEs; both IDEs cannot listen on 8082 simultaneously.
+If `${DB_URL}` appears literally in a JDBC error, verify the working directory and `.env`. Stop the existing local Backend before switching IDEs; both IDEs cannot listen on 8082 simultaneously.

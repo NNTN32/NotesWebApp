@@ -1,6 +1,6 @@
 # TablePlus — NotesRedis Production
 
-> Historical snapshot (OrbStack era, before the 19/10 Lightsail cutover). Hosts, tunnels, accounts and ports below are out of date. For current production and release process use [Release runbook](ci-cd.md) and the [current Notion runbook](https://app.notion.com/p/3f084e0b99dd813d927dd749ed5f6661).
+> Historical snapshot (OrbStack era, before the 19/10 Lightsail cutover; the OrbStack VM was removed on 20/10/2026). Hosts, tunnels, accounts and ports below are out of date. For current production and release process use [Release runbook](ci-cd.md) and the [current Notion runbook](https://app.notion.com/p/3f084e0b99dd813d927dd749ed5f6661).
 
 Verified 05/10/2026: Test + Connect Redis 7.4.11; server confirms notes_observer client.
 
