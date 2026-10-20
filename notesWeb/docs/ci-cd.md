@@ -5,12 +5,19 @@ Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-
 ## Gates
 
 1. PR: Java 21 unit tests, disposable PostgreSQL/Redis/RabbitMQ integration tests, built-image readiness smoke, and Node CD regression tests. PRs have no production credentials.
-2. Merged, current `main`: rebuild that revision for amd64/arm64; record `nntn/notes-app@sha256:…` in `backend-release`. Feature pushes publish candidates only. Direct main pushes cannot deploy.
+2. Merged, current `main`: rebuild that revision for amd64/arm64; record `nntn/notes-app@sha256:…` in `backend-release`. Feature pushes publish candidates only. Direct main pushes cannot deploy; `release-policy` retries the merged-PR lookup for about a minute because GitHub can lag in linking a fresh merge commit to its PR.
 3. `ProductBE` environment (restrict deployment branches to `main`): `DOKPLOY_API_KEY`; registry credentials retain their existing names. Never use the old `dokploy_URL` webhook or mutable `latest` as a deployment input. The key is an API key of the Dokploy **owner**: a Member role is rejected with HTTP 401 on `application.update` (run #99), and per-service roles need an Enterprise license. See [Deploy credential](#deploy-credential) for the compensating controls.
-4. Serial CD checks the exact node, application, previous healthy pinned digest, unchanged runtime settings and no competing deployment. It updates only the pinned image and replaces the legacy custom health override with the image's liveness check, then requests a uniquely named API deployment. No API mutation is automatically retried.
+4. Serial CD checks the exact node, application, previous healthy pinned digest, unchanged runtime settings and no competing deployment. It updates only the pinned image and replaces the legacy custom health override with the image's liveness check, then requests a uniquely named API deployment. Mutations are not blindly retried: the only retry is one `application.deploy` request after a 5xx/transport failure, and only when no deployment with this release ID exists (see Failure and rollback).
 5. Require matching Dokploy deployment completion, one healthy Swarm replica, exact digest and OCI revision. Public GET gates check readiness, BE and FE same-origin auth polling (202/PENDING), and anonymous note access denial (401). Observe for another 120 seconds. Only then promote that digest to `latest`.
 
 Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application state only. Public health responses contain only status. Redis health uses PING because the application ACL deliberately denies INFO. Full CI runtime/integration smoke is amd64. After publishing, each architecture's child digest is pulled and checked (OCI revision label equals the commit, `java -version` runs under amd64 and arm64); this is not an arm64 integration test. All GitHub Actions are pinned to full commit SHAs. `main` is protected by a ruleset: PR required, `build-and-test` and `deployment-tests` must pass on an up-to-date branch, no force-push/deletion, no bypass.
+
+## Running a release
+
+- **Release:** merge a reviewed PR with a normal merge commit. CI then publishes, deploys and promotes `latest` by itself; watch the `deploy` job and the `backend-deployment` artifact.
+- **No deploy:** put `[skip deploy]` in the merge commit title for changes that do not alter the running application (CI, docs, tests). Tests still run; `publish` and `deploy` are skipped and production keeps its pinned digest.
+- **After a release:** confirm the Dokploy deployment titled `BE-<run>-<attempt>` is Done, the pinned image equals the new digest, public readiness is UP and `latest` on Docker Hub has the same index digest with amd64 and arm64.
+- **Re-running:** re-run only the failed `deploy` job, and only after the `failure` field and Dokploy state are understood (next section).
 
 ## Failure and rollback
 
