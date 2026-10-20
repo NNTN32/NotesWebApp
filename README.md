@@ -2,8 +2,8 @@
 
 **A high-performance, real-time, event-driven Notes application** built with modern Java/Spring Boot stack, focusing on scalability, security, and reliable messaging.
 
-**Live Demo**: Self-hosted via Cloudflare Tunnel (zero-trust networking)  
-📖 **[API Documentation](https://server.nhannotes.id.vn)** (Swagger UI)  
+**Production**: Lightsail Malaysia · Dokploy / Docker Swarm · Cloudflare DNS/proxy + origin TLS
+📖 **[API Documentation](https://server.nhannotes.id.vn)** (Swagger UI)
 📂 **[GitHub Repository](https://github.com/NNTN32/NotesWebApp)**
 
 ## ✨ Key Features
@@ -16,19 +16,19 @@
 
 ## 🛠️ Tech Stack
 
-**Backend**  
-- Java 21, Spring Boot 3.5, Spring Security, RESTful API  
+**Backend**
+- Java 21, Spring Boot 3.5.16, Spring Security, RESTful API
 - Message Broker / Event-Driven: RabbitMQ, Redis Streams, PostgreSQL outbox/inbox, Asynchronous Processing
-- Database & Caching: PostgreSQL, UUID v7, Redis  
-- Security: JWT, OAuth2, RBAC (Role-Based Access Control)  
-- Real-time: WebSocket, STOMP  
+- Database & Caching: PostgreSQL, UUID v7, Redis
+- Security: JWT, OAuth2, RBAC (Role-Based Access Control)
+- Real-time: WebSocket, STOMP
 
-**DevOps & Deployment**  
-- Docker, Docker Swarm (orchestration), Dokploy (self-hosted PaaS)  
-- Cloudflare Tunnel (Zero Trust Networking)  
-- CI/CD via GitHub Actions + Webhooks, Health Check Monitoring, Container Lifecycle Management  
+**DevOps & Deployment**
+- Docker, Docker Swarm (orchestration), Dokploy (self-hosted PaaS)
+- Cloudflare DNS/proxy with origin TLS (Full strict)
+- CI/CD via GitHub Actions → immutable Docker Hub digest → Dokploy API; health/smoke gates and guarded rollback
 
-**Concepts**  
+**Concepts**
 Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
 
 ## 🏗️ Architecture Highlights
@@ -67,7 +67,7 @@ Note edits keep their event ID across retries. A per-note outbox order check pre
 | 3 | Secure authentication & session management in distributed environment, prevent token reuse attacks | Implemented **JWT with HttpOnly Refresh Token rotation**, integrated with **Redis** for session management + suspicious reuse detection |
 | 4 | Users required real-time updates for collaborative notes and reminders | Integrated **full-duplex WebSocket (STOMP)** for instant push notifications |
 | 5 | Risk of duplicate data processing + inefficient primary key generation in distributed system | Used **PostgreSQL + UUID v7 (ordered)** + implemented **Idempotency logic** |
-| 6 | Secure, highly available self-hosted deployment without relying on cloud vendor lock-in | Designed production-ready setup with **Docker Swarm + Dokploy + Cloudflare Tunnel** + automated CI/CD and health monitoring |
+| 6 | Operate a small production stack with a recovery path | **Lightsail + Dokploy + Cloudflare**, monitored releases and encrypted off-VM backups; one VM is not highly available |
 
 ## 📖 API Documentation & Exploration
 
@@ -79,22 +79,12 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 - **Authentication:** Some endpoints require JWT. You can use the `auth-controller` endpoint to log in/register (email, username & password), obtain a Token, and then click the **"Authorize"** button at the top of the Swagger page to paste the token.
 - **Time Zone:** You must set the time zone (e.g., Asia/Ho_Chi_Minh) before the deadline. Additionally, the due date must be entered in HH:mm format, and the reminder time must be PT1M, PT... depending on how long you want the reminder to be.
 
-## 📦 Deployment
-- **Self-hosted Production Grade** → Docker Swarm + Cloudflare Tunnel + automated monitoring
+## Deployment and recovery
 
-**Pipeline Overview:**
+[Release runbook](notesWeb/docs/ci-cd.md) · [Contributor/process rules](CLAUDE.md)
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/3ec81ae9-6ffb-4d5c-ae3e-146024b62c5b" alt="Deployment Flow Diagram" width="95%" />
-</p>
+PR tests → merged/current main → build immutable digest → verify Lightsail identity → Dokploy API deploy → exact running image/revision + readiness/public smoke → 120-second observation → promote latest. No production deployment from PRs, feature branches or direct main pushes. The deploy job uses the main-only **ProductBE** environment.
 
-*Above is the CI/CD pipeline and runtime environment flow.*
+Readiness checks PostgreSQL/Redis/RabbitMQ; Docker uses application liveness. A failed gate restores the previous pinned image only if no concurrent/ambiguous deployment intervenes. CI stays red and records sanitized evidence in `backend-deployment`. Rollback keeps current data, env and networks; it is not a database restore.
 
-**Key Deployment Technologies:**
-
-- Fully containerized with **Docker Swarm**
-- Self-hosted PaaS using **Dokploy**
-- Zero Trust Networking via **Cloudflare Tunnel**
-- Automated CI/CD pipelines with **GitHub Actions**
-- Health check monitoring & container lifecycle management
-
+Production runs on `notesweb-my-01`, Malaysia (`ap-southeast-5`), with PostgreSQL, Redis and RabbitMQ private in Docker networks. OrbStack is retired and preserved for recovery, never an automatic deploy destination. Encrypted backups live outside the VM. The 24-hour soak was waived; this single VM has no HA guarantee.

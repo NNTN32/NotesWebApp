@@ -20,4 +20,6 @@ WORKDIR /app
 #jar from stage build
 COPY --from=build /app/target/*-SNAPSHOT.jar app.jar
 EXPOSE 8081
+HEALTHCHECK --interval=15s --timeout=5s --start-period=120s --retries=3 \
+  CMD wget -q -T 4 -O- "http://127.0.0.1:${SERVER_PORT:-8081}/actuator/health/liveness" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"UP"'
 ENTRYPOINT ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
