@@ -287,3 +287,23 @@ jobs:
           name: backend-deployment
           path: deployment.json
           retention-days: 90
+
+  notify:
+    # One Discord message (#ci_be-alert) per run, green or red. Fork/Dependabot runs get no secret and skip.
+    needs: [deployment-tests, build-and-test, release-policy, publish, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - name: Post CI result to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CI_WEBHOOK }}
+          RESULTS: ${{ toJSON(needs) }}
+          TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+          REF: ${{ github.head_ref || github.ref_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci/notify-discord.mjs
