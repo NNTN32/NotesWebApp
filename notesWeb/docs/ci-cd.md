@@ -16,6 +16,7 @@ Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application s
 
 - **Release:** merge a reviewed PR normally. CI publishes, deploys and promotes `latest`; watch the `deploy` job and the `backend-deployment` artifact.
 - **No deploy:** put `[skip deploy]` in the PR title for changes that do not alter the running application (CI, docs, tests). Never put it, even negated, in a runtime PR's title.
+- **Bring production up to current `main` after `[skip deploy]` merges:** merge the next PR without `[skip deploy]`; CD then deploys the merge commit, so `/actuator/info` matches `main` again.
 - **After a release:** `https://server.nhannotes.id.vn/actuator/info` shows the merged commit and GHCR `latest` has the same index digest with amd64 and arm64.
 
 ## Failure and rollback
