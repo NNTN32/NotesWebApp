@@ -107,7 +107,7 @@ jobs:
           curl --silent --show-error --max-time 10 --include http://localhost:8081/actuator/health/readiness || true
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports
           path: notesWeb/target/surefire-reports/
@@ -222,7 +222,7 @@ jobs:
             writeFileSync("release.json", JSON.stringify({revision: process.env.GITHUB_SHA,
               image: `${process.env.IMAGE}@${process.env.DIGEST}`, runId: process.env.GITHUB_RUN_ID,
               platforms: ["linux/amd64", "linux/arm64"]}, null, 2));'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-release
           path: |
@@ -282,7 +282,7 @@ jobs:
         run: docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
       - name: Preserve sanitized deployment and rollback evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-deployment
           path: deployment.json
