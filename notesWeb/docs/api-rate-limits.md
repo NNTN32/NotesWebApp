@@ -25,7 +25,7 @@ Keys use `auth:rate-limit:<budget>:<SHA256(identity)>`, contain no password, bea
 
 ## Rollout and rollback
 
-Back up Swarm/Dokploy settings and Cloudflare rules before rollout. Run unit tests and ApiRateLimitIntegrationTest against disposable Redis, then CI, a real allowed login, bounded 429 checks and recovery. Never use real user credentials to test brute force. Check CORS exposes Retry-After and bad credentials/forged tokens/origins still fail.
+Back up the CapRover app settings and Cloudflare rules before rollout. Run unit tests and ApiRateLimitIntegrationTest against disposable Redis, then CI, a real allowed login, bounded 429 checks and recovery. Never use real user credentials to test brute force. Check CORS exposes Retry-After and bad credentials/forged tokens/origins still fail.
 
 Emergency disable: `APP_RATE_LIMIT_ENABLED=false` (requires application restart), or revert to the previously pinned image. Disable only the new http_ratelimit rule for edge rollback. Remove only the new edge-proof header transform after the old backend is restored. Do not restore an old database or broker volume. Preserve configuration snapshots privately because the header transform contains a secret.
 
