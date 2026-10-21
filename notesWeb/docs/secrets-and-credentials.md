@@ -6,7 +6,7 @@ Rule: local and production use the **same variable names**, different values. Va
 |---|---|
 | Local | `notesWeb/.env` (copy from `.env.example`; gitignored) and the defaults in `application.yml` (`localhost`, `postgres`, `guest`) |
 | Production | CapRover App Configs → Environmental Variables of each app (VM `notesweb-my-02-caprover`) |
-| CI | `ProductBE` environment secret `CAPROVER_APP_TOKEN` only; images are pushed with the per-run `GITHUB_TOKEN`. DB, Redis and Rabbit credentials are **not** in GitHub |
+| CI | `ProductBE` environment secret `CAPROVER_APP_TOKEN`, plus repository secret `DISCORD_CI_WEBHOOK` (CI result messages only); images are pushed with the per-run `GITHUB_TOKEN`. DB, Redis and Rabbit credentials are **not** in GitHub |
 
 ## Production variables (CapRover app `server`)
 

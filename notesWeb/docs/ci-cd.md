@@ -29,4 +29,5 @@ If the new revision never appears or any gate fails, CD deploys the previous ver
 - `CAPROVER_APP_TOKEN`: only in `ProductBE`. Rotate on suspicion or maintainer change: dashboard → app `server` → Deployment → regenerate the token, update the secret, run a release.
 - GHCR pull credential on CapRover: a classic GitHub token with **only** `read:packages`, stored in CapRover → Cluster → Docker Registries. Rotate before it expires.
 - No long-lived registry push secret exists: CI pushes with the per-run `GITHUB_TOKEN`.
+- `DISCORD_CI_WEBHOOK` (repository secret, Discord `#ci_be-alert`): the final `notify` job posts one message per run, success, failure or cancelled, with each job's result and the run link (`scripts/ci/notify-discord.mjs`). Fork and Dependabot runs have no secret and skip. Rotate by regenerating the webhook in Discord and updating the secret.
 - CapRover admin password and the Cloudflare Origin certificate key stay on the VM / in the owner's password manager, never in GitHub.
