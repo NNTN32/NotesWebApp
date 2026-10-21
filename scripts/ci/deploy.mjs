@@ -5,8 +5,8 @@ import { pathToFileURL } from 'node:url';
 
 export const target = Object.freeze({
   endpoint: 'https://dokploy.nhannotes.id.vn',
-  applicationId: '_mkgSpRBPfNpAjBLu_zDB',
-  appName: 'nnnoteswebapp-notesserver-oubfhi',
+  applicationId: 'rDgL4qXlHUj1uVj1IM0gB',
+  appName: 'nnnoteswebapp-notesserver-ehbjxt',
   hostname: 'ip-172-26-24-177', address: '172.26.24.177',
   publicUrl: 'https://server.nhannotes.id.vn', frontendUrl: 'https://nhannotes.id.vn',
 });
