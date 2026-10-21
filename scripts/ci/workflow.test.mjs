@@ -42,3 +42,6 @@ test('every run reports its result to Discord without touching production creden
   assert.doesNotMatch(notify, /CAPROVER_APP_TOKEN|environment:|packages: write/);
   assert.equal(workflow.split('DISCORD_CI_WEBHOOK').length - 1, 1);
 });
+test('every merged main commit is published and deployed (no skip-deploy marker)', () => {
+  assert.doesNotMatch(workflow, /skip deploy/i);
+});
