@@ -39,4 +39,4 @@ Existing typed auth/principal/security and user repository access remain availab
 
 Before merge/deploy: run unit and disposable infrastructure integration tests, require green PR/main CI, restore fresh production backups on an isolated network, compare the current and candidate OpenAPI contract, replay old JSON envelopes and test the exact release image. Canary auth/429, note create/update and reminders; verify existing business fingerprints and backlog after fixture cleanup.
 
-Rollback swaps the previous pinned application image/configuration and Dokploy metadata, preserving current database and broker data. A package move must not require data rollback. Existing JPA associations and real Cloudinary behavior still need their own broader design/testing work.
+Rollback swaps the previous pinned application image/configuration, preserving current database and broker data. A package move must not require data rollback. Existing JPA associations and real Cloudinary behavior still need their own broader design/testing work.
