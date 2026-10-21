@@ -1,6 +1,6 @@
 # Backend release process
 
-Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-177` (`172.26.24.177`). Application `_mkgSpRBPfNpAjBLu_zDB`. OrbStack was removed on 20/10/2026 after a final `pg_dumpall` (app DB `NoteApp` + Dokploy DB) was saved off-machine by the owner, and is never a CD fallback. Spring Boot stays **3.5.16**; messaging/data contracts are unchanged.
+Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-177` (`172.26.24.177`). Application `rDgL4qXlHUj1uVj1IM0gB` (`nnnoteswebapp-notesserver-ehbjxt`, recreated 21/10/2026). OrbStack was removed on 20/10/2026 after a final `pg_dumpall` (app DB `NoteApp` + Dokploy DB) was saved off-machine by the owner, and is never a CD fallback. Spring Boot stays **3.5.16**; messaging/data contracts are unchanged.
 
 ## Gates
 

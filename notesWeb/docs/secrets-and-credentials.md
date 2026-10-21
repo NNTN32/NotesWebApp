@@ -8,36 +8,32 @@ Rule: local and production use the **same variable names**, different values. Va
 | Production | Dokploy environment of each service only |
 | CI | GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `DOKPLOY_API_KEY`. DB, Redis and Rabbit credentials are **not** in GitHub |
 
-## Production variables (Dokploy, service `Notes_Server`)
+## Production identities (rebuilt 21/10/2026)
 
-- `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`: a dedicated `notes_app` role, never the superuser.
-- `RABBIT_USERNAME`, `RABBIT_PASSWORD`: a dedicated `notes_mq` user, never `guest`.
-- `SPRING_DATA_REDIS_USERNAME`, `SPRING_DATA_REDIS_PASSWORD`: Spring relaxed binding of `spring.data.redis.*`; `RedisConfig` already reads both, no code change.
-- `JWT_SECRET`, `CLOUDINARY_API_SECRET`: unique to production.
+Each data service has its own admin and a narrow app account. `Notes_Server` only ever uses the app accounts.
 
-## Create the dedicated identities (one time)
+| Service (Dokploy appName) | Admin, ops only | App account (`Notes_Server` env) |
+|---|---|---|
+| `notes-postgres` (`nnnoteswebapp-notespostgres-rbrlzd-lbjr8e`) | `postgres` superuser, password in Dokploy General | `notes_app`: owner of DB `NoteApp`, no superuser/createdb/createrole → `DB_USERNAME`, `DB_PASSWORD` |
+| `notes-redis` (`nnnoteswebapp-notesredis-ztd7pp-cae4dt`) | `default` with `+@all`, password = Dokploy `REDIS_PASSWORD` | `notes_redis`: keys `auth: notes: media: note: session: grace: login:`, `-@admin -@dangerous` → `SPRING_DATA_REDIS_USERNAME`, `SPRING_DATA_REDIS_PASSWORD` |
+| `notes-rabbitmq` (`nnnoteswebapp-notesrabbitmq-9fu2ti`) | `rabbit_admin` (administrator) | `notes_mq`, vhost `/`, no tags → `RABBIT_USERNAME`, `RABBIT_PASSWORD` |
 
-Generate passwords on the VM and store them in a password manager. Do not paste them into chat, PRs or docs.
+Also on `Notes_Server`: `JWT_SECRET`, `CLOUDINARY_*` (unique to production). `fe` reaches the API through `API_UPSTREAM=http://nnnoteswebapp-notesserver-ehbjxt:8081`.
 
-```bash
-PG=$(docker ps -qf name=postgres | head -1)
-docker exec -i "$PG" psql -U <current-db-user> -d NoteApp <<'SQL'
-CREATE ROLE notes_app LOGIN PASSWORD '<PASSWORD>';
-ALTER DATABASE "NoteApp" OWNER TO notes_app;
-DO $$ DECLARE r record; BEGIN
-  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
-  LOOP EXECUTE format('ALTER TABLE public.%I OWNER TO notes_app', r.tablename); END LOOP;
-END $$;
-SQL
+### Redis specifics
 
-RB=$(docker ps -qf name=rabbitmq | head -1)
-docker exec "$RB" rabbitmqctl add_user notes_mq '<PASSWORD>'
-docker exec "$RB" rabbitmqctl set_permissions -p / notes_mq ".*" ".*" ".*"
-```
+Redis runs with args `redis-server /data/notesweb-redis.conf`; users live in `/data/notesweb-users.acl` (SHA-256 hashes only). The Dokploy password field and `REDIS_PASSWORD` are **not** read by Redis after that; keep them equal to the `default` hash so the Dokploy UI stays truthful. `default` must keep `+@all`: AOF replay of `MULTI/EXEC` runs as `default`, and a disabled `default` makes Redis drop those transactions on restart (`NOPERM ... AOF-loading-client`, seen 21/10/2026). Edit the ACL file, test it on a side instance (`redis-server --port 6391 --aclfile ...`), then Reload.
 
-Order: create the new identity, set the Dokploy variables, redeploy `Notes_Server`, verify (login, set reminder, upload media, worker lag), and only then remove the old role or user (`DROP ROLE`, `rabbitmqctl delete_user`). Changing Postgres or Rabbit initial-credential env on an existing data volume has no effect; always use SQL / `rabbitmqctl`.
+### RabbitMQ specifics
 
-The Postgres and Redis services are native Dokploy databases: change their password in the service's General tab, then redeploy, then update the matching variable on `Notes_Server`. A backup of the database comes first.
+Image `rabbitmq:3.13-management`, volume on `/var/lib/rabbitmq`, `RABBITMQ_NODENAME=rabbit@localhost`, file mounts `/etc/rabbitmq/enabled_plugins` (management, prometheus, stomp) and `/etc/rabbitmq/conf.d/90-notesweb.conf` (watermark 192MiB). `guest` is deleted. In 3.13 `rabbitmqctl add_user` does not read a piped password: read it with `read -rs` and pass it as an argument.
+
+## Change a password
+
+- Postgres: `psql -U postgres -d NoteApp` then `\password notes_app`; update `DB_PASSWORD`; redeploy `Notes_Server`.
+- Redis: append/replace the user's line with `#$(printf '%s' "$P" | sha256sum | cut -d' ' -f1)`, test on a side instance, Reload `notes-redis`, then update `Notes_Server`.
+- RabbitMQ: `rabbitmqctl change_password notes_mq "$P"` (from `read -rs`), then update `Notes_Server`.
+- Never put a password on a command line you keep, in chat, PRs or screenshots.
 
 ## Rotation
 
