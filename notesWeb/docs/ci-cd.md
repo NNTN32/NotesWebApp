@@ -1,42 +1,32 @@
 # Backend release process
 
-Production: **Dokploy on Lightsail Malaysia**, `notesweb-my-01` / `ip-172-26-24-177` (`172.26.24.177`). Application `_mkgSpRBPfNpAjBLu_zDB`. OrbStack was removed on 20/10/2026 after a final `pg_dumpall` (app DB `NoteApp` + Dokploy DB) was saved off-machine by the owner, and is never a CD fallback. Spring Boot stays **3.5.16**; messaging/data contracts are unchanged.
+Production: **CapRover 1.15.1 (Docker Swarm) on Lightsail Malaysia**, VM `notesweb-my-02-caprover` (static IP behind Cloudflare only). The backend is the CapRover app `server` (`https://server.nhannotes.id.vn`, internal `http://server:8081`). Images live in the **private** GitHub Container Registry `ghcr.io/nntn32/notes-app`. Docker Hub and Dokploy are retired; Spring Boot stays **3.5.16**.
 
 ## Gates
 
 1. PR: Java 21 unit tests, disposable PostgreSQL/Redis/RabbitMQ integration tests, built-image readiness smoke, and Node CD regression tests. PRs have no production credentials.
-2. Merged, current `main`: rebuild that revision for amd64/arm64; record `nntn/notes-app@sha256:…` in `backend-release`. Feature pushes publish candidates only. Direct main pushes cannot deploy; `release-policy` retries the merged-PR lookup for about a minute because GitHub can lag in linking a fresh merge commit to its PR.
-3. `ProductBE` environment (restrict deployment branches to `main`): `DOKPLOY_API_KEY`; registry credentials retain their existing names. Never use the old `dokploy_URL` webhook or mutable `latest` as a deployment input. The key is an API key of the Dokploy **owner**: a Member role is rejected with HTTP 401 on `application.update` (run #99), and per-service roles need an Enterprise license. See [Deploy credential](#deploy-credential) for the compensating controls.
-4. Serial CD checks the exact node, application, previous healthy pinned digest, unchanged runtime settings and no competing deployment. It updates only the pinned image and replaces the legacy custom health override with the image's liveness check, then requests a uniquely named API deployment. Mutations are not blindly retried: the only retry is one `application.deploy` request after a 5xx/transport failure, and only when no deployment with this release ID exists (see Failure and rollback).
-5. Require matching Dokploy deployment completion, one healthy Swarm replica, exact digest and OCI revision. Public GET gates check readiness, BE and FE same-origin auth polling (202/PENDING), and anonymous note access denial (401). Observe for another 120 seconds. Only then promote that digest to `latest`.
+2. Merged, current `main`: rebuild that revision for amd64/arm64 with `REVISION=<commit>` and push to GHCR with the workflow's own `GITHUB_TOKEN` (`packages: write`); record `ghcr.io/nntn32/notes-app@sha256:…` in `backend-release`. Feature pushes publish candidates only. Direct main pushes cannot deploy (`release-policy`).
+3. `ProductBE` environment (deployment branches: `main` only) holds one secret, `CAPROVER_APP_TOKEN`: the deploy token of the CapRover app `server`. It can only start a deploy of that one app; it cannot read config, env or other apps.
+4. `deploy` resolves `ghcr.io/nntn32/notes-app:latest` (only ever a digest that passed this job) as the rollback target, then asks CapRover to deploy the exact new digest (detached, so Cloudflare's 100 s proxy limit never cuts the request). CapRover pulls it from GHCR with its own read-only registry credential.
+5. Public gates: `/actuator/info` must report the new commit (proves the new container answers), readiness UP, BE and FE same-origin auth polling `202 PENDING`, anonymous `/notes/listNotes` `401`. They must then hold for 120 s. Only then is the digest promoted to `latest`.
 
-Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application state only. Public health responses contain only status. Redis health uses PING because the application ACL deliberately denies INFO. Full CI runtime/integration smoke is amd64. After publishing, each architecture's child digest is pulled and checked (OCI revision label equals the commit, `java -version` runs under amd64 and arm64); this is not an arm64 integration test. All GitHub Actions are pinned to full commit SHAs. `main` is protected by a ruleset: PR required, `build-and-test` and `deployment-tests` must pass on an up-to-date branch, no force-push/deletion, no bypass.
+Readiness includes PostgreSQL, Redis and RabbitMQ; liveness checks application state only (Swarm uses it via the image `HEALTHCHECK`). Public health responses contain only status and `/actuator/info` only the revision. All GitHub Actions are pinned to full commit SHAs. `main` is protected: PR required, `build-and-test` and `deployment-tests` must pass, no force-push/deletion.
 
 ## Running a release
 
-- **Release:** merge a reviewed PR with a normal merge commit. CI then publishes, deploys and promotes `latest` by itself; watch the `deploy` job and the `backend-deployment` artifact.
-- **No deploy:** put `[skip deploy]` in the PR title for changes that do not alter the running application (CI, docs, tests). The merge commit message carries the PR title and CI checks the whole message, so the default merge title is fine. Tests still run; on the `main` run confirm `publish` and `deploy` show *skipped* and production keeps its pinned digest. Never put the marker, even negated, in a runtime PR's title.
-- **Branches:** start from an up-to-date `main`, keep one topic per PR, and delete the head branch after merge.
-- **After a release:** confirm the Dokploy deployment titled `BE-<run>-<attempt>` is Done, the pinned image equals the new digest, public readiness is UP and `latest` on Docker Hub has the same index digest with amd64 and arm64.
-- **Re-running:** re-run only the failed `deploy` job, and only after the `failure` field and Dokploy state are understood (next section).
+- **Release:** merge a reviewed PR normally. CI publishes, deploys and promotes `latest`; watch the `deploy` job and the `backend-deployment` artifact.
+- **No deploy:** put `[skip deploy]` in the PR title for changes that do not alter the running application (CI, docs, tests). Never put it, even negated, in a runtime PR's title.
+- **After a release:** `https://server.nhannotes.id.vn/actuator/info` shows the merged commit and GHCR `latest` has the same index digest with amd64 and arm64.
 
 ## Failure and rollback
 
-`backend-deployment` retains sanitized `deployment.json` for 90 days: candidate/previous digests, revision, deployment IDs, rollback outcome and, on failure, a sanitized `failure` such as `Dokploy application.update HTTP 401` (route and status only; never response bodies). A failed release stays red even if rollback succeeds. Native Swarm health rollback remains an additional layer.
+`backend-deployment` keeps a sanitized `deployment.json` for 90 days: new/previous digests, revision, status, rollback outcome and, if CapRover rejected the request, only `CapRover deploy HTTP <code>` or `status <code>`. Response bodies and tokens are never written or printed.
 
-CD rolls back to the saved digest and prior health override, then repeats runtime/public gates, **only** when this run still owns the desired image/settings and no competing or active deployment exists. It preserves env, networks, volumes and data. If `application.deploy` fails with a 5xx or transport error (for example Cloudflare 522), CD first looks for a deployment titled with this release ID for up to 30 seconds, continues with it if found, and otherwise retries that one request once; any other ambiguous POST outcome, concurrent change or failed rollback produces `manual_required`. After such a failure Dokploy can pin the new digest while Swarm still runs the old one, so compare the pinned image with the running service before re-running; inspect Dokploy history/runtime before retrying. Do not blindly rerun the workflow or force `docker service rollback` over an unrelated PreviousSpec.
+If the new revision never appears or any gate fails, CD deploys the previous verified digest and waits for every public contract on a different revision (`rollback: passed`). The run stays red. `no_previous_release` (first release) or `manual_required` means: open the CapRover dashboard → app `server` → Deployment, pick the last good version (or deploy `ghcr.io/nntn32/notes-app@<digest from the last green backend-deployment>`), then check `/actuator/info` and readiness. Data volumes (`notes-postgres`, `notes-redis`, `notes-rabbitmq`) are never touched by CD. Schema/data rollback needs a separately validated backup/restore.
 
-Manual recovery: quiesce deployment automation, verify the Lightsail node and latest successful artifact, pin the known-good digest in Dokploy, deploy, then verify service/container health, readiness and public contracts. Leave current data volumes intact. Schema/data rollback requires a separately validated backup/restore plan; never restore the 20/10 OrbStack dump over new production writes.
+## Credentials
 
-## Deploy credential
-
-`DOKPLOY_API_KEY` has full owner power, so treat it as the most sensitive CD secret.
-
-- Store it only as an environment secret of `ProductBE`, restricted to `main`; never in repository secrets, PR workflows, logs, files or chat. Use a key dedicated to this pipeline (for example `github-be-deploy`) and not for anything else.
-- Rotate it on a schedule and immediately after any suspected exposure, a maintainer change or a failed-deploy investigation that touched it: create the new key, update the secret, then revoke the old key in Dokploy (Profile → API/CLI).
-- Enable 2FA on the owner account and review Dokploy audit logs after releases. The script is hard-pinned to one endpoint and application, so a leaked workflow cannot redirect it elsewhere, but a leaked key itself can act as owner.
-- Do not recreate a Member CI user unless Dokploy grants it update/deploy rights on one service without node-wide Docker access.
-
-After each release, confirm the publish job's per-architecture smoke step is green and `release.json` in `backend-release` lists both `linux/amd64` and `linux/arm64` before trusting the deployed digest.
-
-Before first rollout: confirm off-VM encrypted backup and restore evidence, API key scope, ProductBE branch restriction and live API response shapes. Do not merge until PR CI and review pass. No schema migration, IAM change, Free→Paid upgrade or public database/admin exposure is part of this release.
+- `CAPROVER_APP_TOKEN`: only in `ProductBE`. Rotate on suspicion or maintainer change: dashboard → app `server` → Deployment → regenerate the token, update the secret, run a release.
+- GHCR pull credential on CapRover: a classic GitHub token with **only** `read:packages`, stored in CapRover → Cluster → Docker Registries. Rotate before it expires.
+- No long-lived registry push secret exists: CI pushes with the per-run `GITHUB_TOKEN`.
+- CapRover admin password and the Cloudflare Origin certificate key stay on the VM / in the owner's password manager, never in GitHub.
