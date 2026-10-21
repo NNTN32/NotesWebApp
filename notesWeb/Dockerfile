@@ -16,6 +16,10 @@ RUN mvn clean package -DskipTests
 
 #RUNTIME
 FROM eclipse-temurin:21-jre-alpine
+ARG REVISION=local
+# Served by /actuator/info so CD can prove the new container answers.
+ENV APP_REVISION=$REVISION
+LABEL org.opencontainers.image.revision=$REVISION
 WORKDIR /app
 #jar from stage build
 COPY --from=build /app/target/*-SNAPSHOT.jar app.jar

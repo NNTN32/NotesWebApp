@@ -8,9 +8,9 @@ test('production credentials and immutable deployment stay behind the main envir
   assert.match(deployment, /github.event_name == 'push' && github.ref == 'refs\/heads\/main'/);
   assert.match(deployment, /environment: ProductBE/);
   assert.match(deployment, /cancel-in-progress: false/);
-  assert.match(deployment, /RELEASE_IMAGE: nntn\/notes-app@\$\{\{ needs.publish.outputs.digest \}\}/);
-  assert.doesNotMatch(workflow.slice(0, workflow.indexOf('\n  deploy:')), /DOKPLOY_API_KEY/);
-  assert.doesNotMatch(workflow, /DOKPLOY_WEBHOOK|secrets\.dokploy_URL/);
+  assert.match(deployment, /RELEASE_IMAGE: ghcr.io\/nntn32\/notes-app@\$\{\{ needs.publish.outputs.digest \}\}/);
+  assert.doesNotMatch(workflow.slice(0, workflow.indexOf('\n  deploy:')), /CAPROVER_APP_TOKEN/);
+  assert.doesNotMatch(workflow, /DOKPLOY|DOCKERHUB_TOKEN|nntn\/notes-app/);
   assert.ok(deployment.indexOf('node scripts/ci/deploy.mjs') < deployment.indexOf('Promote only the verified digest'));
   assert.doesNotMatch(deployment, /continue-on-error/);
 });
@@ -33,4 +33,15 @@ test('the published digest is smoked on both architectures before it is recorded
   const publish = workflow.slice(workflow.indexOf('\n  publish:'), workflow.indexOf('\n  deploy:'));
   assert.match(publish, /linux\/amd64 linux\/arm64/);
   assert.ok(publish.indexOf('both architectures') < publish.indexOf('Record immutable release'));
+});
+test('every run reports its result to Discord without touching production credentials', () => {
+  const notify = workflow.slice(workflow.indexOf('\n  notify:'));
+  assert.match(notify, /needs: \[deployment-tests, build-and-test, release-policy, publish, deploy\]/);
+  assert.match(notify, /if: always\(\)/);
+  assert.match(notify, /DISCORD_WEBHOOK: \$\{\{ secrets.DISCORD_CI_WEBHOOK \}\}/);
+  assert.doesNotMatch(notify, /CAPROVER_APP_TOKEN|environment:|packages: write/);
+  assert.equal(workflow.split('DISCORD_CI_WEBHOOK').length - 1, 1);
+});
+test('every merged main commit is published and deployed (no skip-deploy marker)', () => {
+  assert.doesNotMatch(workflow, /skip deploy/i);
 });

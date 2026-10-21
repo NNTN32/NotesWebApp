@@ -46,4 +46,9 @@ class ReadinessIntegrationTest {
                 .andExpect(jsonPath("$.components").doesNotExist())
                 .andExpect(jsonPath("$.details").doesNotExist());
     }
+
+    @Test void infoServesOnlyTheBuildRevisionForDeploymentChecks() throws Exception {
+        mvc.perform(get("/actuator/info"))
+                .andExpect(status().isOk()).andExpect(content().json("{\"revision\":\"local\"}", true));
+    }
 }

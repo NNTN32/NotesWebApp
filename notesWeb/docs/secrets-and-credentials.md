@@ -5,15 +5,18 @@ Rule: local and production use the **same variable names**, different values. Va
 | Where | Source of values |
 |---|---|
 | Local | `notesWeb/.env` (copy from `.env.example`; gitignored) and the defaults in `application.yml` (`localhost`, `postgres`, `guest`) |
-| Production | Dokploy environment of each service only |
-| CI | GitHub secrets: `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `DOKPLOY_API_KEY`. DB, Redis and Rabbit credentials are **not** in GitHub |
+| Production | CapRover App Configs → Environmental Variables of each app (VM `notesweb-my-02-caprover`) |
+| CI | `ProductBE` environment secret `CAPROVER_APP_TOKEN`, plus repository secret `DISCORD_CI_WEBHOOK` (CI result messages only); images are pushed with the per-run `GITHUB_TOKEN`. DB, Redis and Rabbit credentials are **not** in GitHub |
 
-## Production variables (Dokploy, service `Notes_Server`)
+## Production variables (CapRover app `server`)
+
+Hosts are the CapRover service names on the private overlay network: `notes-postgres`, `notes-redis`, `notes-rabbitmq` (no published ports).
 
 - `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`: a dedicated `notes_app` role, never the superuser.
 - `RABBIT_USERNAME`, `RABBIT_PASSWORD`: a dedicated `notes_mq` user, never `guest`.
 - `SPRING_DATA_REDIS_USERNAME`, `SPRING_DATA_REDIS_PASSWORD`: Spring relaxed binding of `spring.data.redis.*`; `RedisConfig` already reads both, no code change.
 - `JWT_SECRET`, `CLOUDINARY_API_SECRET`: unique to production.
+- Admin identities (`postgres`, Redis `default`, `rabbit_admin`) are for operators only; Redis `default` must keep `+@all` because AOF replays `MULTI/EXEC` as `default`. The Redis ACL lives in `/captain/notes/redis/users.acl` on the VM (SHA-256 hashes only).
 
 ## Create the dedicated identities (one time)
 
@@ -35,9 +38,9 @@ docker exec "$RB" rabbitmqctl add_user notes_mq '<PASSWORD>'
 docker exec "$RB" rabbitmqctl set_permissions -p / notes_mq ".*" ".*" ".*"
 ```
 
-Order: create the new identity, set the Dokploy variables, redeploy `Notes_Server`, verify (login, set reminder, upload media, worker lag), and only then remove the old role or user (`DROP ROLE`, `rabbitmqctl delete_user`). Changing Postgres or Rabbit initial-credential env on an existing data volume has no effect; always use SQL / `rabbitmqctl`.
+Order: create the new identity, set the CapRover variables, save (redeploys `server`), verify (login, set reminder, upload media, worker lag), and only then remove the old role or user (`DROP ROLE`, `rabbitmqctl delete_user`). Changing Postgres or Rabbit initial-credential env on an existing data volume has no effect; always use SQL / `rabbitmqctl`.
 
-The Postgres and Redis services are native Dokploy databases: change their password in the service's General tab, then redeploy, then update the matching variable on `Notes_Server`. A backup of the database comes first.
+Change a Postgres password with `ALTER ROLE` (or `\password`), a Rabbit one with `rabbitmqctl change_password`, a Redis one by editing the hash in `users.acl` and `ACL LOAD`; then update the matching variable on `server`. A backup of the database comes first.
 
 ## Rotation
 

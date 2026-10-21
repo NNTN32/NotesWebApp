@@ -19,10 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - run: node --test scripts/ci/*.test.mjs
@@ -35,7 +35,7 @@ jobs:
         working-directory: notesWeb
     # Disposable CI infrastructure only. No production credentials on PRs.
     env:
-      DOCKERHUB_USERNAME: notesweb-ci
+      DOCKERHUB_USERNAME: notesweb-ci # local compose image namespace only; nothing is pushed
       APP_VERSION: ci
       APP_MESSAGING_INITIALIZE_SCHEMA: 'true'
       MESSAGING_TEST_DB_URL: jdbc:postgresql://localhost:5433/NoteApp
@@ -63,7 +63,7 @@ jobs:
       CLOUDINARY_API_KEY: ci-placeholder
       CLOUDINARY_API_SECRET: ci-placeholder
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
@@ -74,9 +74,9 @@ jobs:
           cache-dependency-path: notesWeb/pom.xml
       - name: Unit tests
         run: bash ./mvnw -B test '-Dtest=!*IntegrationTest,!NotesWebApplicationTests' -Dsurefire.failIfNoSpecifiedTests=false
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Build local CI image (no registry push)
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./notesWeb
           load: true
@@ -107,7 +107,7 @@ jobs:
           curl --silent --show-error --max-time 10 --include http://localhost:8081/actuator/health/readiness || true
       - name: Upload test reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-reports
           path: notesWeb/target/surefire-reports/
@@ -150,43 +150,47 @@ jobs:
     if: >-
       always() && needs.build-and-test.result == 'success' &&
       needs.deployment-tests.result == 'success' && github.event_name == 'push' &&
-      !contains(github.event.head_commit.message, '[skip deploy]') &&
       (startsWith(github.ref, 'refs/heads/feature/') ||
        (github.ref == 'refs/heads/main' && needs.release-policy.outputs.merged == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
       contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/nntn32/notes-app
     outputs:
       digest: ${{ steps.image.outputs.digest }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Image tags (latest is promoted separately)
         id: meta
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5.10.0
         with:
-          images: nntn/notes-app
+          images: ${{ env.IMAGE }}
           flavor: latest=false
           tags: |
             type=sha,format=long
             type=ref,event=branch
       - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and publish tested revision
         id: image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: ./notesWeb
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: REVISION=${{ github.sha }}
           cache-from: type=gha,scope=be-release
           cache-to: type=gha,mode=max,scope=be-release,ignore-error=true
       - name: Smoke the exact published digest on both architectures
@@ -194,15 +198,15 @@ jobs:
           DIGEST: ${{ steps.image.outputs.digest }}
         run: |
           mkdir -p reports
-          docker buildx imagetools inspect --raw "nntn/notes-app@$DIGEST" > reports/manifest.json
+          docker buildx imagetools inspect --raw "$IMAGE@$DIGEST" > reports/manifest.json
           for platform in linux/amd64 linux/arm64; do
             architecture="${platform#linux/}"
             child=$(jq -er --arg arch "$architecture" \
               '.manifests[] | select(.platform.os == "linux" and .platform.architecture == $arch) | .digest' reports/manifest.json)
-            docker pull --platform "$platform" "nntn/notes-app@$child"
-            revision=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "nntn/notes-app@$child")
+            docker pull --platform "$platform" "$IMAGE@$child"
+            revision=$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$IMAGE@$child")
             test "$revision" = "$GITHUB_SHA"
-            docker run --rm --platform "$platform" --entrypoint java "nntn/notes-app@$child" -version
+            docker run --rm --platform "$platform" --entrypoint java "$IMAGE@$child" -version
             jq -n --arg arch "$architecture" --arg digest "$child" --arg revision "$revision" \
               '{architecture:$arch,digest:$digest,revision:$revision}' > "reports/smoke-$architecture.json"
           done
@@ -215,9 +219,9 @@ jobs:
             import assert from "node:assert/strict";
             assert.match(process.env.DIGEST, /^sha256:[a-f0-9]{64}$/);
             writeFileSync("release.json", JSON.stringify({revision: process.env.GITHUB_SHA,
-              image: `nntn/notes-app@${process.env.DIGEST}`, runId: process.env.GITHUB_RUN_ID,
+              image: `${process.env.IMAGE}@${process.env.DIGEST}`, runId: process.env.GITHUB_RUN_ID,
               platforms: ["linux/amd64", "linux/arm64"]}, null, 2));'
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-release
           path: |
@@ -231,14 +235,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: ProductBE
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ghcr.io/nntn32/notes-app
     concurrency:
       group: be-production
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22'
       - name: Reject superseded main run before deployment
@@ -247,24 +256,53 @@ jobs:
           script: |
             const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
             if (branch.commit.sha !== context.sha) core.setFailed('Main has advanced; do not deploy this older run.');
-      - name: Deploy exact digest and verify Lightsail, health and public contracts
-        env:
-          DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
-          RELEASE_IMAGE: nntn/notes-app@${{ needs.publish.outputs.digest }}
-        run: node scripts/ci/deploy.mjs
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Resolve the last verified digest for rollback
+        id: previous
+        run: |
+          # latest only ever points at a digest that passed this job; absent on the first CapRover release.
+          if digest=$(docker buildx imagetools inspect "$IMAGE:latest" --format '{{ .Manifest.Digest }}' 2>/dev/null); then
+            echo "image=$IMAGE@$digest" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Deploy exact digest to CapRover and verify revision, readiness and public contracts
+        env:
+          CAPROVER_APP_TOKEN: ${{ secrets.CAPROVER_APP_TOKEN }}
+          RELEASE_IMAGE: ghcr.io/nntn32/notes-app@${{ needs.publish.outputs.digest }}
+          PREVIOUS_IMAGE: ${{ steps.previous.outputs.image }}
+        run: node scripts/ci/deploy.mjs
       - name: Promote only the verified digest
         env:
           DIGEST: ${{ needs.publish.outputs.digest }}
-        run: docker buildx imagetools create --tag nntn/notes-app:latest "nntn/notes-app@$DIGEST"
+        run: docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@$DIGEST"
       - name: Preserve sanitized deployment and rollback evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-deployment
           path: deployment.json
           retention-days: 90
+
+  notify:
+    # One Discord message (#ci_be-alert) per run, green or red. Fork/Dependabot runs get no secret and skip.
+    needs: [deployment-tests, build-and-test, release-policy, publish, deploy]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/ci
+      - name: Post CI result to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_CI_WEBHOOK }}
+          RESULTS: ${{ toJSON(needs) }}
+          TITLE: ${{ github.event.pull_request.title || github.event.head_commit.message }}
+          REF: ${{ github.head_ref || github.ref_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: node scripts/ci/notify-discord.mjs
