@@ -2,7 +2,7 @@
 
 **A high-performance, real-time, event-driven Notes application** built with modern Java/Spring Boot stack, focusing on scalability, security, and reliable messaging.
 
-**Production**: Lightsail Malaysia · Dokploy / Docker Swarm · Cloudflare DNS/proxy + origin TLS
+**Production**: Lightsail Malaysia · CapRover / Docker Swarm · Cloudflare DNS/proxy + origin TLS
 📖 **[API Documentation](https://server.nhannotes.id.vn)** (Swagger UI)
 📂 **[GitHub Repository](https://github.com/NNTN32/NotesWebApp)**
 
@@ -24,9 +24,9 @@
 - Real-time: WebSocket, STOMP
 
 **DevOps & Deployment**
-- Docker, Docker Swarm (orchestration), Dokploy (self-hosted PaaS)
+- Docker, Docker Swarm (orchestration), CapRover (self-hosted PaaS)
 - Cloudflare DNS/proxy with origin TLS (Full strict)
-- CI/CD via GitHub Actions → immutable Docker Hub digest → Dokploy API; health/smoke gates and guarded rollback
+- CI/CD via GitHub Actions → immutable private GHCR digest → CapRover app token; revision/health/smoke gates and rollback to the last verified digest
 
 **Concepts**
 Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
@@ -67,7 +67,7 @@ Note edits keep their event ID across retries. A per-note outbox order check pre
 | 3 | Secure authentication & session management in distributed environment, prevent token reuse attacks | Implemented **JWT with HttpOnly Refresh Token rotation**, integrated with **Redis** for session management + suspicious reuse detection |
 | 4 | Users required real-time updates for collaborative notes and reminders | Integrated **full-duplex WebSocket (STOMP)** for instant push notifications |
 | 5 | Risk of duplicate data processing + inefficient primary key generation in distributed system | Used **PostgreSQL + UUID v7 (ordered)** + implemented **Idempotency logic** |
-| 6 | Operate a small production stack with a recovery path | **Lightsail + Dokploy + Cloudflare**, monitored releases and encrypted off-VM backups; one VM is not highly available |
+| 6 | Operate a small production stack with a recovery path | **Lightsail + CapRover + Cloudflare**, monitored releases and encrypted off-VM backups; one VM is not highly available |
 
 ## 📖 API Documentation & Exploration
 
@@ -83,8 +83,8 @@ This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire AP
 
 [Release runbook](notesWeb/docs/ci-cd.md) · [Contributor/process rules](CLAUDE.md)
 
-PR tests → merged/current main → build immutable digest → verify Lightsail identity → Dokploy API deploy → exact running image/revision + readiness/public smoke → 120-second observation → promote latest. No production deployment from PRs, feature branches or direct main pushes; a merge whose commit message contains `[skip deploy]` (put it in the PR title; CI/docs/test-only changes) skips publish and deploy. The deploy job uses the main-only **ProductBE** environment.
+PR tests → merged/current main → build immutable GHCR digest → CapRover deploy (app token) → served revision + readiness/public smoke → 120-second observation → promote latest. No production deployment from PRs, feature branches or direct main pushes; a merge whose commit message contains `[skip deploy]` (put it in the PR title; CI/docs/test-only changes) skips publish and deploy. The deploy job uses the main-only **ProductBE** environment.
 
 Readiness checks PostgreSQL/Redis/RabbitMQ; Docker uses application liveness. A failed gate restores the previous pinned image only if no concurrent/ambiguous deployment intervenes. CI stays red and records sanitized evidence in `backend-deployment`. Rollback keeps current data, env and networks; it is not a database restore.
 
-Production runs on `notesweb-my-01`, Malaysia (`ap-southeast-5`), with PostgreSQL, Redis and RabbitMQ private in Docker networks. The old OrbStack VM `nntn-vps` was removed on 20/10/2026 after a final `pg_dumpall` (app DB `NoteApp` + Dokploy DB) was saved off-machine by the owner; it is never a deploy destination. Encrypted backups live outside the VM. The 24-hour soak was waived; this single VM has no HA guarantee.
+Production runs on `notesweb-my-02-caprover`, Malaysia (`ap-southeast-5`), with PostgreSQL, Redis and RabbitMQ private in Docker networks. The old OrbStack VM `nntn-vps` was removed on 20/10/2026 after a final `pg_dumpall` (app DB `NoteApp` + Dokploy DB) was saved off-machine by the owner; it is never a deploy destination. Encrypted backups live outside the VM. The 24-hour soak was waived; this single VM has no HA guarantee.
