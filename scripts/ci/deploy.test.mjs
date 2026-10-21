@@ -63,6 +63,12 @@ test('a failed smoke rolls back to the previous digest and stays failed', async 
   assert.ok(!JSON.stringify(f.records).includes('secret-body'));
 });
 
+test('contract failures before the first full pass are retried (FE may still be releasing)', async () => {
+  const f = fixture({ smokes: ['fail', 'retry', 'ok', 'ok', 'ok'] });
+  assert.equal((await deploy(config, f.deps)).status, 'passed');
+  assert.equal(f.posts.length, 1);
+});
+
 test('a revision that never appears times out and rolls back', async () => {
   const f = fixture({ smokes: ['retry', 'retry', 'retry', 'ok', 'ok', 'ok'] });
   await assert.rejects(deploy(config, f.deps), /rollback passed/);

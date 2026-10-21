@@ -71,17 +71,16 @@ export async function deploy(config, {
   };
   const waitFor = async expectedRevision => {
     for (let i = 0; i < attempts; i++) {
-      try {
-        const served = await smokeCheck({ revision: expectedRevision });
-        for (let sample = 0; sample < observationSamples; sample++) {
-          await pause(10_000);
-          await smokeCheck({ revision: expectedRevision ?? served });
-        }
-        return served;
-      } catch (error) {
-        if (!error.retryable) throw error;
+      let served;
+      // Until the first full pass anything may still be warming up (incl. the FE origin, released separately).
+      try { served = await smokeCheck({ revision: expectedRevision }); }
+      catch { await pause(10_000); continue; }
+      // Once healthy, any failure during the observation window fails the release.
+      for (let sample = 0; sample < observationSamples; sample++) {
         await pause(10_000);
+        await smokeCheck({ revision: expectedRevision ?? served });
       }
+      return served;
     }
     throw new Error('Deployment health gate timed out');
   };
