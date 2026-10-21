@@ -34,3 +34,11 @@ test('the published digest is smoked on both architectures before it is recorded
   assert.match(publish, /linux\/amd64 linux\/arm64/);
   assert.ok(publish.indexOf('both architectures') < publish.indexOf('Record immutable release'));
 });
+test('every run reports its result to Discord without touching production credentials', () => {
+  const notify = workflow.slice(workflow.indexOf('\n  notify:'));
+  assert.match(notify, /needs: \[deployment-tests, build-and-test, release-policy, publish, deploy\]/);
+  assert.match(notify, /if: always\(\)/);
+  assert.match(notify, /DISCORD_WEBHOOK: \$\{\{ secrets.DISCORD_CI_WEBHOOK \}\}/);
+  assert.doesNotMatch(notify, /CAPROVER_APP_TOKEN|environment:|packages: write/);
+  assert.equal(workflow.split('DISCORD_CI_WEBHOOK').length - 1, 1);
+});
