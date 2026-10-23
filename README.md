@@ -1,90 +1,120 @@
-# Notes Web Application
+# NotesWeb · Backend
 
-**A high-performance, real-time, event-driven Notes application** built with modern Java/Spring Boot stack, focusing on scalability, security, and reliable messaging.
+Backend for **NotesWeb**, a personal notes and to-do app with deadline reminders pushed to the browser in real time.
 
-**Production**: Lightsail Malaysia · CapRover / Docker Swarm · Cloudflare DNS/proxy + origin TLS
-📖 **[API Documentation](https://server.nhannotes.id.vn)** (Swagger UI)
-📂 **[GitHub Repository](https://github.com/NNTN32/NotesWebApp)**
+**Live app:** [nhannotes.id.vn](https://nhannotes.id.vn) · **API docs (Swagger):** [server.nhannotes.id.vn](https://server.nhannotes.id.vn) · **Frontend repo:** [NNTN32/NotesWeb_FE](https://github.com/NNTN32/NotesWeb_FE)
 
-## ✨ Key Features
-- Modular Monolith architecture with clean separation of concerns (Auth, Notes, Media services)
-- Real-time collaborative notes & instant reminder push via WebSocket (STOMP)
-- Event-driven asynchronous processing (login, note updates) using Redis Streams + RabbitMQ and a PostgreSQL outbox
-- Reliable scheduled & delayed notifications with PostgreSQL due-time scheduling, RabbitMQ, retries and a durable DLQ
-- Secure JWT authentication with HttpOnly Refresh Token rotation + suspicious reuse detection
-- High-performance PostgreSQL with UUID v7 (ordered) primary keys + Idempotency guarantees
+## What problem it solves
 
-## 🛠️ Tech Stack
+People keep notes and to-dos in one place and want to be reminded on time, without the app slowing down or losing work when traffic spikes. The backend does three things for that:
 
-**Backend**
-- Java 21, Spring Boot 3.5.16, Spring Security, RESTful API
-- Message Broker / Event-Driven: RabbitMQ, Redis Streams, PostgreSQL outbox/inbox, Asynchronous Processing
-- Database & Caching: PostgreSQL, UUID v7, Redis
-- Security: JWT, OAuth2, RBAC (Role-Based Access Control)
-- Real-time: WebSocket, STOMP
+- **Store notes, media and to-do lists safely per user**, so each user only ever sees and changes their own data.
+- **Never lose a reminder or an edit.** Slow work (login checks, note updates, reminders) runs in the background through queues with retries, and a failed message is kept for inspection instead of being dropped.
+- **Push changes instantly.** Reminders and updates reach the open browser over WebSocket, so nobody has to refresh.
 
-**DevOps & Deployment**
-- Docker, Docker Swarm (orchestration), CapRover (self-hosted PaaS)
-- Cloudflare DNS/proxy with origin TLS (Full strict)
-- CI/CD via GitHub Actions → immutable private GHCR digest → CapRover app token; revision/health/smoke gates and rollback to the last verified digest
+## Features
 
-**Concepts**
-Modular Monolith, Event-Driven Architecture (EDA), Idempotency, Scalability
+| Area | What you can do |
+|---|---|
+| Account | Register, log in, log out, refresh the session. Access token (JWT) + HttpOnly refresh cookie that rotates on every use; reuse of an old refresh token is detected. Login and register are rate-limited. |
+| Notes | Create, list, read, update and delete your own notes. Edits are processed in order, so a newer edit never overtakes an older one. |
+| Media | Upload images/files to a note (stored on Cloudinary, up to 100 MB) and delete them. |
+| To-do lists | Create lists, update items and status, delete lists. |
+| Reminders | Set a deadline (`HH:mm`, in your time zone) and how early to be reminded (`PT1M`, `PT30M`, …). The reminder is delivered on time, even across restarts. |
+| Real time | STOMP over WebSocket (`/ws`) pushes reminders and updates to the browser. |
 
-## 🏗️ Architecture Highlights
+## Tech stack
 
-[Backend package ownership](notesWeb/docs/feature-modules.md): `auth`, `notes` (including media), `todos` (including reminders), generic `platform`, `shared` and startup wiring. Spring Boot remains pinned to **3.5.16**; RabbitMQ/outbox contracts are unchanged.
+| Layer | Technology |
+|---|---|
+| Language / framework | Java 21, Spring Boot **3.5.16**, Spring Security, Spring Data JPA |
+| Database | PostgreSQL 15 (UUID v7 ordered keys, transactional outbox/inbox) |
+| Cache / streams | Redis 7 (sessions, rate limits, Redis Streams for login and auth events) |
+| Messaging | RabbitMQ 3.13 (publisher confirms, manual ACK, retry, dead-letter queue, STOMP relay) |
+| Real time | WebSocket + STOMP |
+| Media storage | Cloudinary |
+| API docs | springdoc OpenAPI 3 / Swagger UI |
+| CI/CD | GitHub Actions → private GHCR image (pinned by digest) → CapRover deploy, with health/smoke gates and automatic rollback |
+| Hosting | AWS Lightsail (Malaysia), CapRover on Docker Swarm, Cloudflare proxy + origin TLS |
 
-- **Modular Monolith** → Clean separation of concerns, easy to maintain and scale
+## How it works
+
+The code is a **modular monolith**: one deployable app split into `auth`, `notes` (with media), `todos` (with reminders), and shared `platform` code ([package map](notesWeb/docs/feature-modules.md)).
 
 <p align="center">
-  <img src="https://github.com/user-attachments/assets/1eecf02f-bbdb-4ccc-a34c-0de2872f2f68" alt="Deployment Flow Diagram" width="95%" />
+  <img src="https://github.com/user-attachments/assets/1eecf02f-bbdb-4ccc-a34c-0de2872f2f68" alt="Architecture and deployment flow" width="95%" />
 </p>
 
-- **Event-Driven System** → Decoupled services, high throughput under load
-
-**Note updates and reminders:**
+A note update or reminder is saved to PostgreSQL together with an outbox record in the same transaction. Only after that does a worker publish it to RabbitMQ, so a crash can never lose it:
 
 ```mermaid
 flowchart LR
-  API[Authenticated note update API] --> DB[(PostgreSQL outbox)]
+  API[Note update API] --> DB[(PostgreSQL + outbox)]
   Scheduler[Reminder schedule] --> DB
   DB --> Relay[Confirmed publisher]
   Relay --> Rabbit[RabbitMQ durable queues]
-  Rabbit --> Consumer[Manual ACK consumers]
-  Consumer --> TX[Business write + inbox + notification outbox]
-  Consumer --> DLQ[Durable failure record + DLQ]
+  Rabbit --> Consumer[Manual-ACK consumers]
+  Consumer --> TX[Business write + inbox + notification]
+  Consumer --> DLQ[Failure record + DLQ]
+  TX --> WS[WebSocket push to browser]
 ```
 
-Note edits keep their event ID across retries. A per-note outbox order check prevents a newer edit from overtaking an unfinished edit. See [PR 3 cutover and regression checks](notesWeb/docs/rabbit-note-updates-pr3.md).
+The inbox makes every consumer idempotent: a message delivered twice is applied once. More detail: [reliable messaging](notesWeb/docs/reliable-messaging-pr2.md), [note updates on RabbitMQ](notesWeb/docs/rabbit-note-updates-pr3.md), [rate limits](notesWeb/docs/api-rate-limits.md).
 
-## 🔥 Challenges & How I Solved Them
+## Try it
 
-| # | Problem | Solution |
-|---|---------|----------|
-| 1 | API response time degraded under high load due to synchronous processing of login & note updates | Architected **event-driven system** with **Redis Streams + RabbitMQ/outbox**; HTTP 202 follows a durable command write |
-| 2 | Need reliable scheduled reminders + delayed message delivery without losing messages | Built robust notification system using **PostgreSQL scheduling + RabbitMQ, transactional retries and DLQ** |
-| 3 | Secure authentication & session management in distributed environment, prevent token reuse attacks | Implemented **JWT with HttpOnly Refresh Token rotation**, integrated with **Redis** for session management + suspicious reuse detection |
-| 4 | Users required real-time updates for collaborative notes and reminders | Integrated **full-duplex WebSocket (STOMP)** for instant push notifications |
-| 5 | Risk of duplicate data processing + inefficient primary key generation in distributed system | Used **PostgreSQL + UUID v7 (ordered)** + implemented **Idempotency logic** |
-| 6 | Operate a small production stack with a recovery path | **Lightsail + CapRover + Cloudflare**, monitored releases and encrypted off-VM backups; one VM is not highly available |
+### Option 1: use the live API (no setup)
 
-## 📖 API Documentation & Exploration
+1. Open [server.nhannotes.id.vn](https://server.nhannotes.id.vn) (Swagger UI).
+2. `POST /api/auth/register` with an email, username and password.
+3. `POST /api/auth/login`. The response contains a `sessionId` (login is processed in the background).
+4. `GET /api/auth/login/result/{sessionId}` until it returns `accessToken`.
+5. Click **Authorize**, paste the token, then try `/notes`, `/todo` and `/reminder` (send header `X-TimeZone`, e.g. `Asia/Ho_Chi_Minh`).
 
-This project uses **OpenAPI 3.0 (Swagger)** to manage and document the entire API system. You can interact directly with the endpoints at:
+### Option 2: run everything locally with Docker
 
-🔗 **[https://server.nhannotes.id.vn](https://server.nhannotes.id.vn)**
+Requirements: Docker with Compose.
 
-**Testing Tips:**
-- **Authentication:** Some endpoints require JWT. You can use the `auth-controller` endpoint to log in/register (email, username & password), obtain a Token, and then click the **"Authorize"** button at the top of the Swagger page to paste the token.
-- **Time Zone:** You must set the time zone (e.g., Asia/Ho_Chi_Minh) before the deadline. Additionally, the due date must be entered in HH:mm format, and the reminder time must be PT1M, PT... depending on how long you want the reminder to be.
+```bash
+git clone https://github.com/NNTN32/NotesWebApp.git
+cd NotesWebApp/notesWeb
+cp .env.example .env
+```
 
-## Deployment and recovery
+Edit `.env` before the first start:
 
-[Release runbook](notesWeb/docs/ci-cd.md) · [Contributor/process rules](CLAUDE.md)
+- `DB_PASSWORD`: any local password.
+- `JWT_SECRET`: at least 32 characters.
+- `RABBIT_USERNAME` / `RABBIT_PASSWORD`: a user other than `guest` (RabbitMQ only allows `guest` from inside its own container).
+- `DOCKERHUB_USERNAME=local`: only names the locally built image.
+- Add `APP_MESSAGING_INITIALIZE_SCHEMA=true`: creates the messaging tables in a fresh database.
+- `CLOUDINARY_*`: optional, only needed for media upload.
 
-PR tests → merged/current main → build immutable GHCR digest → CapRover deploy (app token) → served revision + readiness/public smoke → 120-second observation → promote latest. No production deployment from PRs, feature branches or direct main pushes; every merge to main is published and deployed, so production always serves the `main` head. The deploy job uses the main-only **ProductBE** environment.
+```bash
+docker compose up -d --build --wait
+```
 
-Readiness checks PostgreSQL/Redis/RabbitMQ; Docker uses application liveness. A failed gate restores the previous pinned image only if no concurrent/ambiguous deployment intervenes. CI stays red and records sanitized evidence in `backend-deployment`. Rollback keeps current data, env and networks; it is not a database restore.
+Open [localhost:8081](http://localhost:8081) for Swagger and follow steps 2–5 above. RabbitMQ UI: [localhost:15672](http://localhost:15672). Stop with `docker compose down` (add `-v` to wipe local data).
 
-Production runs on `notesweb-my-02-caprover`, Malaysia (`ap-southeast-5`), CapRover on single-node Docker Swarm behind Cloudflare. PostgreSQL, Redis and RabbitMQ are CapRover apps without published ports. Earlier hosts (OrbStack `nntn-vps`, Dokploy `notesweb-my-01`) are retired and are never deploy destinations. Off-VM backups for this VM are still to be set up. This single VM has no HA guarantee.
+### Option 3: run the app from your IDE
+
+Start only PostgreSQL, Redis and RabbitMQ in Docker, then run `NotesWebApplication` with Java 21 on port 8082. See [local run guide](notesWeb/docs/local-run.md) for ports and IDE settings.
+
+### Tests
+
+```bash
+node --test scripts/ci/*.test.mjs                 # CI/CD scripts
+cd notesWeb && ./mvnw -B test '-Dtest=!*IntegrationTest,!NotesWebApplicationTests'   # unit tests
+```
+
+Integration tests need disposable PostgreSQL/Redis/RabbitMQ; CI provides them ([CI.yml](.github/workflows/CI.yml)).
+
+## Deployment
+
+Every merge to `main` is released automatically, so production always runs the `main` head:
+
+PR checks → build multi-arch image → push to private GHCR by digest → deploy to CapRover app `server` → check served revision, readiness and public smoke test for 120 s → promote `latest`. If a check fails, the previous `latest` is redeployed and the run stays red. Each run posts its result to Discord.
+
+Production runs on one Lightsail VM behind Cloudflare. PostgreSQL, Redis and RabbitMQ have no public ports. Encrypted backups go to S3 daily and are restore-tested; CloudWatch alarms report to Discord. One VM means no high availability.
+
+Runbooks: [CI/CD](notesWeb/docs/ci-cd.md) · [secrets and credentials](notesWeb/docs/secrets-and-credentials.md) · [contributor rules](CLAUDE.md)
