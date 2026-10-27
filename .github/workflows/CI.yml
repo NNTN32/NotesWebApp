@@ -127,7 +127,7 @@ jobs:
     steps:
       - name: Require main commit from a merged PR
         id: policy
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             // GitHub can lag a few seconds linking a fresh merge commit to its PR; retry before calling it a direct push.
@@ -251,7 +251,7 @@ jobs:
         with:
           node-version: '22'
       - name: Reject superseded main run before deployment
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             const {data: branch} = await github.rest.repos.getBranch({...context.repo, branch: 'main'});
